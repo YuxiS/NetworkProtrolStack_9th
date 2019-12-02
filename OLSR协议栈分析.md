@@ -1,4 +1,4 @@
-<center style:"font:100"> OLSR协议分析  </center>
+<center> <font size=6>OLSR协议分析</font>  </center>
 
 
 
@@ -14,4 +14,3 @@
 * OLSR用于移动自组织网络，MPR的实现极大的减小了网络中的控制流量，特别适用大型密集型移动网络，而且网络越大，效果越好。
 * OLSR最初就是为以完全分布式方式工作，不依赖任何中心实体。
 * OLSR不需要对IP数据包做任何修改。
-
