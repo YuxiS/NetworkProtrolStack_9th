@@ -18,9 +18,11 @@
 
 **邻居元组 ___(N_neighbor_main_addr, N_2hop_addr,N_time)___**
 
-**MPR选择分组 ___(MS_main_addr, MS_time)___** 
+**MPR选择元组 ___(MS_main_addr, MS_time)___** 
 
-**拓扑分组 ___{T_test_addr,T_lase_addr, T_seq, T_time}___**
+**拓扑元组 ___{T_test_addr,T_lase_addr, T_seq, T_time}___**
+
+**路由表项元组__{R_dest_addr, R_next_addr, R_dist, R_iface_addr}__
 
 ### 1.2.2链路感知
 
@@ -66,7 +68,6 @@
 <p style="text-indent:2em">节点基于链接元组集来维护邻居信息元组集，随着链接信息集的更新来更新这些信息。</p>
 <p style="text-indent:2em">链接集保存链路的链接信息，邻居集保存邻居信息，这两个集合之间有明确的关系，当一个节点是另一个节点的邻居节点时，这两个节点间至少应该有一条双向链接链路。</p>
 <p style="text-indext:2em">邻居和链接只间的正是对应关系如下:</p>
-
 * 如果一个链接元组中的关联邻居元组存在，邻居元组为：
 
   ​	<code>N_neighbor_main_addr ==L_neightbor_iface _addr的主地址</code> 
@@ -104,17 +105,14 @@
 * HELLO分组处理
 
   <p style="text-indent:2em">一个HELLO分组的Original Address是该分组的发出者地址。同时，根据HELLO的willingness字段重新计算willingness。收到一个HELLO分组后，节点需要更新自己的链接集和邻居集。</p>
-
-  * 如果发出者地址是邻居集中邻居元组中的N_neighbor_main_addr，则邻居元组应该更新：
-
-    ​	<code>N_willingness = HELLO分组中的willingness</code>
+* 如果发出者地址是邻居集中邻居元组中的N_neighbor_main_addr，则邻居元组应该更新：
+  
+  ​	<code>N_willingness = HELLO分组中的willingness</code>
 
 #### 2. 扩充二跳邻居集
 
-	<p style="text-indent:2em">二跳邻居集描述的是对称邻居的对称链接信息，其依然通过互相交互HELLO分组来维护。</p>
-
+<p style="text-indent:2em">二跳邻居集描述的是对称邻居的对称链接信息，其依然通过互相交互HELLO分组来维护。</p>
 <p style="text-indent:2em">从对称邻居接受到一个全新的HELLO分组后，一个节点应该更新其二跳邻居集。接受到一个HELLO分组，首先通过Vtime计算有效时，检测其是否有效。如果该分组的发出者地址是包含着链接集中链接元组中的L_neighbor_iface_addr的一个主地址，如果 <code>L_SYM_time >= current time</code> 则该分组未过期。</p>
-
 * 对于每一个在HELLO中分组中且邻居类型为SYM_NEIGH或MPR_NEIGH的地址：
 
    * 如果一个二跳邻居节点的主地址不等于接受节点的主地址，则丢弃该二跳邻居。
@@ -138,17 +136,224 @@
 ###  1.2.4 MPR
 
 <p style="text-indent:2em">MPR用于洪泛网络控制分组，主要是减少分组传输过程中的重传次数，因此，该机制是对传统洪泛机制的优化。</p>
-
 <p style="text-indent:2em">网络中的每个节点独立地从一跳对称邻居中选择自己的MPR集，和邻居节点中MPR的对称链路在HELLO分组中的链路类型为MPR_NEIGH。</p>
-
  <p style="text-indent:2em">每个节点的每个接口都计算自己的MPR集，所有接口的MPR集的并集为该节点的MPR集。</p>
+<p style="text-indent:2em">MPR集应满足以下两点要求：节点与MPR之间必须是一跳双向链路；节点能通过MPR集到达所有的严格两跳邻居节点。</p>
+#### 1. MPR计算
+
+* 从一个节点的子集开始，当N_willness等于WILL_ALWAYS该子集中成员属于一个MPR集。
+
+* 计算该子集中所有节点的一跳邻居集。
+
+* 添加节点，当且仅当该节点对另一子集中节点可达时。例如另一个子集中的b节点通过对称链路可访问到节点该子集中的a节点时，向MPR集中添加a节点，同时去除另一子集中的节点。
+
+* 当另一子集中存在未被当前MPR中节点覆盖节点时:
+
+  * 计算当前子集中的每一个节点的可达性。即另一子集中尚未被当前子集中的节点覆盖，并且通过一跳邻居能到达的节点。
+  * 在当前子集中选择一个拥有最大N_willingness，且可达节点不为0的节点。在这种情况下，选择的几点应该具有对另一子集节点的最大可达性。(即拥有对另一子集可达节点最多)在这种当多个节点拥有相同最大可达性的情况下，选择属于MPR集，且拥有最大一跳邻居集的节点。然后删除被该节点覆盖掉的另一子集中的节点。
+
+* 从已有的MPR集中生成每个节点的MPR集。
+
+  对于上述算法，还可以有部分优化。
+
+#### 2. MPR selector扩充计算
+
+​	节点的MPR selector集通过其他将同一子集选为初始MPR集的节点的主地址来扩充。MPR选择过程通过HELLO消息的交互来实现。
+
+* HELLO消息处理
+
+  一个节点接受一个HELLO分组后，如果发现本节点的其中一个接口地址在邻居类型等于MPR_NEIGH的列表中时，该HELLO分组携带的信息必须被重新记录在MPR Selector集中。
+
+  Validity time必须通过HELLO分组的Vtime字段重新计算。MPR selector集更新规则如下：
+
+  1. 如果不存在具有以下内容MPR selector元组：
+
+     <code>MS_main_addr == 发出者地址</code>
+
+     则创建一个新元组：
+
+     <code>MS_main_addr = 发出者地址</code>
+
+  2. 如果元组：
+
+     <code>MS_main_addr == 发出者地址</code>
+
+     则修改MS_time字段:
+
+     <code>MS_time = current time + validity time</code>
+
+#### 3. 邻居和二条邻居变化
+
+​	邻居节点的变化情况将在以下情况下被检测到:
+
+* 如果链接元组的L_SYM_Time字段到期。
+
+* 在链接集中插入一个新的链接元组，其中L_SYM_Time字段未过期，或者L_SYM_Time被修改避免过期。
+
+当邻居集或者二跳邻居集被检测到发生变化，则执行以下流程：
+
+* 如果有邻居丢失，则所有<code>N_neighbor_main_addr==Main Address</code>的二跳元组必须被删除。
+* 如果有邻居丢失，所有<code>MS_main_addr == Main Address</code>的MPR selector元组必须被删除。
+* 当有邻居或者二跳邻居改变，丢失，或者删除时，MPR集必须重新计算。
+* 当MPR集发生改变时，可能发出一个额外的HELLO分组。
+
+### 1.2.5 拓扑发现
+
+<p style="text-indent:2em">前面的链路检测和邻居检测部分为每个节点提供了能够直接通信的邻居列表，并且合并了数据包的格式和通过MPR优化的前向路由洪泛算法。拓扑信息基于此在网络中得以传播。</p>
+<p style="text-indent:2em">网络的路由结构是通过广播链路来实现的。一个节点必须至少传播其本身和MPR selector集中的信息，让网络中有充分的信息构建路由表。</p>
+#### 1. 广播邻居集
+
+<p style="text-indent:2em">一个节点发出TC分组声明链接集，称为广播链接集。该行为必须至少包含到其MPR selector集的所有链接信息。</p>
+<p style="text-indent:2em">与广播邻居集相关联的序列号(ANSN)也应该伴随发出。当链接从广播的邻居集中移除时，ANSN必须增加。当有链接加入邻居集时，ANSN也应该增加。</p>
+#### 2. TC分组生成
+
+<p style="text-indent:2em">为了构建拓扑信息集，每一个被选为MPR的节点，必须广播TC分组。TC分组通过广播方式传播到网络中的每一个节点。MPR在拓扑信息的分散上有良好的扩展性。</p>
+
+<p style="text-indent:2em">地址是TC分组的一部分。所有TC分组的解析必须在一个确定的更新周期内完成。这些TC分组携带的信息将协助网络中所有节点完成路由表的计算。</p>
+
+<p style="text-indent:2em">当一个节点的可广播链接集为空时，其依然应该在之前发出TC分组的validity time时间内持续发送空的TC分组消息。以使之前发送的TC分组失效。然后其应该停止发送TC分组，直到有某个节点加入该节点的广播链接集。</p>
+
+<p style="text-indent:2em">一个节点能够传递附加的TC分组以增强对链路故障的反应性。当MPR selector集的变化被检测到，且该变化可能导致链路故障时，节点应该在短于TC_INTERVAL的时间内传递一个TC分组。</p>
+
+#### 3. TC分组转发
+
+<p style="text-indent:2em">TC分组必须由MPR节点广播转发到整个网络。</p>
+
+#### 4. TC分组处理
+
+* 当接受到一个TC分组后，必须先通过其头部的Vtime字段计算其有效时间然后，拓扑集根据以下规则更新：
+  * 如果此分组的发送者接口不在本节点的一跳对称邻居中，则丢弃该分组。
+
+* 如果拓扑信息集中存在一些元组：
+
+  <code>T_last_addr == 发出者地址 AND</code>
+
+  <code>T_seq > ANSN</code>
+
+  则不对该分组做任何进一步处理，并且丢弃该分组。
+
+* 如果拓扑集中所有的元组都是:
+
+  <code>T_last_addr == 发出者地址 AND</code>
+
+  <code>T_seq < ANSN</code>
+
+  则必须从拓扑集中删除。
+
+* 对于每一个在TC分组中受到的被广播的邻居的主地址：
+
+  * 如果在拓扑集中存在一些元组：
+
+    <code> T_test_addr == 广播邻居的主地址 AND</code>
+
+    <code>T_last_addr == 发出者地址</code>
+
+    则该元组的有效时间必须被设为：
+
+    <code>T_time = current time + validity time</code>
+
+  * 否则，必须在拓扑集中记录一条新的原则记录:
+
+    <code>T_dest_addr = 被广播邻居主地址</code>
+
+    <code>T_last_addr = 发出者地址</code>
+
+    <code>T_seq = ANSN</code>
+
+    <code>T_time = current time + validity time</code>
+
+  ### 1.2.6 路由表计算
+
+  <p style="text-indent:2em">每个节点都拥有一个路由表，通过路由表节点能够让网络中其他节点发送信息.路由表是基于本地的链接信息集和拓扑集构建的，所以这两个集合一旦有任何一个发生变化，路由表都需要重新计算。</p>
+  * 当以下任何一个有变化时，都需要更新路由表:
+    * 链路集
+    * 邻居集
+    * 拓扑集
+    * 二条邻居集
+    * 多接口关联信息集
+
+  路由表计算方法如下：
+
+  * 删除路由表中所有条目
+
+  * 新增加路由表项从以对称邻居作为目的节点开始。因此，对于邻居集中的每个邻居元组，都有:
+
+    <code>N_status = SYM</code>
+
+    并且，对于邻居节点的每个关联链接元组，都有<code>L_time >= current time</code>,路由表中新加的表项为:
+
+    <code>R_dest_addr = 关联链接元组的L_neighbor_iface_addr</code>
+
+    <code>R_next_addr = 关联链接元组的L_neighbor_iface_addr</code>
+
+    <code> R_dist = 1</code>
+
+    <code>R_iface_addr = 关联链接元组的L_local_iface_addr</code>
+
+    如果按照上述情况，没有R_dest_addr等于邻居节点的主地址，则必须添加新的路由表项:
+
+    <code> R_dest_addr = 邻居的Main address</code>
+
+    <code>R_next_addr = L_time>0的关联链接元组的L_neighbor_iface_addr</code>
+
+    <code>R_dist = 1</code>
+
+    <code>R_iface_addr = 关联链接元组的L_local_iface</code>
+
+  * 对于严格二条邻居节点，如果二跳邻居集中至少存在一项记录中N_neighbor_main_addr对于一个willingness不为WILL_NEVER的节点，选择一个二跳邻居节点，并在路由表中添加新表项：
+
+    <code>R_dest_addr = 二跳邻居的Main Address</code>
+
+    <code>R_next_addr = 路由表项中R_dest_addr等于二跳邻居N_neighbor_main_addr的记录的R_next_addr</code>
+
+    <code>R_dist = 2 </code>
+
+    <code>R_ifacce_addr = 路由表中R_dest_addr等于二跳元组中N_neighbor_main-addr的记录的R_iface_addr</code>
+
+    
+
+<p style="text-indent:2em">TC分组通过MPR节点广播和转发到整个网络。</p>
+
+4.
 
 ## 1.3 OLSR协议优缺点
 
+## 1.概述
+
+<p style= "text-indent:2em">最佳链路状态路由协议（Optimized Link State Routing Protocol，OLSR），是专门为无线移动Ad Hoc网络提出来的一种标准化的先验式的优化链路状态路由协议。</p>
+<p style="text-indent:2em">OLSR由传统LSR路由协议改进而来。传统链路状态协议每个节点通过周期性的交换链路状态信息维护整个网络的拓扑信息。在OLSR协议中，网络中的每个节点只选择对称邻居节点的一个子集作为多点中继集MPR（Multipoint Relay），只有被选为MPR的节点才产生并转发TC（Topology Control）分组，同时OLSR只利用MPR节点到MS（MPR Selector）节点之间的链路状态信息来建立最短路由，这样很大程度上减少了转发的信息，减少了网络中洪泛的控制信息。</p>
+## 2.协议的主要流程
+
+### 2.2.1 链路感知
+
+<p style= "text-indent:2em">因为无线电传播的不确定性可能会导致一些链路是单向的，所以每个节点必须检测自己和邻居节点之间的链接是否是双向的，也就是在两个方向上都能传输数据。本地链路信息表存储了到邻居的链接的信息，完善这一集合的过程称为“链路感知”。链路感知通过HELLO分组的周期性交互实现，当一个节点收到HELLO分组时，更新自身的本地链路信息表。</p>
+### 2.2.2 邻居侦听
+
+<p style= "text-indent:2em">每个节点必须检测与哪些邻居节点具有双向链路，节点周期性地广播HELLO分组。HELLO分组用来侦听邻居节点的状态，分布在一跳范围内转播，不能被转发。如图1-1所示，在初始化阶段，节点B广播HELLO分组，当节点A收到这个分组之后，将B放入到自己的邻居节点集中，并标记A到B链路状态为非对称的；然后A广播HELLO分组，其中包含B是A的邻居节点且B到A的链路状态为非对称这一信息，当B收到这一分组时，会在自己的邻居集中将到A的链路状态更新为对称；当B再次广播HELLO分组，A收到这一分组就会将邻居集中的A到B的链路状态更新为对称的。</p>
+<img src="C:\Users\HP\AppData\Roaming\Typora\typora-user-images\image-20191210210527413.png" alt="image-20191210210527413"  />
+
+### 2.2.3 MPR选择
+
+<p style= "text-indent:2em">OLSR采用MPR机制对路由信息进行选择性的洪泛。网络中的每个节点选择自己的一跳对称邻居节点的子集作为中继节点，即MPR，而该节点本身作为MS节点。</p>
+<p style= "text-indent:2em">计算MPR集需要知道自身一跳和两跳邻居的信息。一跳邻居信息通过HELLO分组来获取。对于节点i的一跳邻居节点j来说，i的一跳邻居节点（除j）就是j的二跳邻居节点，所以节点i在发送HELLO分组时附上自己的一跳邻居节点列表，当节点j收到来自i的分组时，就获得了节点j的两跳邻居节点信息。</p>
+<p style= "text-indent:2em">MPR集应满足以下两点要求：节点与MPR之间必须是一跳双向链路；节点能通过MPR集到达所有的严格两跳邻居节点。</p>
+### 2.2.4 TC分组处理
+
+<p style= "text-indent:2em">该协议的链路感知和邻居侦听部分基本上为每个节点提供了一个可以直接与之通信的邻居列表，并结合分组格式和转发部分，通过MPRs提供了一个优化的泛洪机制。</p>
+<p style= "text-indent:2em">在此基础上，通过网络传播拓扑信息。TC分组由MPRs广播和转发。MPR节点每隔一段时间就向全网洪泛TC消息来维护网络拓扑信息。</p>
+### 2.2.5路由表的计算与维护
+
+<p style= "text-indent:2em">网络中的每一个节点都维护一个路由表，路由表的计算是基于节点维护的本地链路信息表和拓扑集。因此，如果本地链路信息表和拓扑表发生变动时，路由表会重新计算并更新表项。在OLSR标准协议中，协议根据最小跳数建立每个节点的路由表。任意一个节点的路由表添加过程如下：首先，添加对称链路的一跳邻居节点；然后，添加两跳邻居节点；最后，循环添加跳数等于h+1（h=2开始）的节点进入路由表。</p>
+## 3.OLSR的优点和局限性
 * OLSR协议是一种先应式路由协议，具有查找路由延时小的优点。
+
 * OLSR用于移动自组织网络，MPR的实现极大的减小了网络中的控制流量，特别适用大型密集型移动网络，而且网络越大，效果越好。
+
 * OLSR最初就是为以完全分布式方式工作，不依赖任何中心实体。
 * OLSR不需要对IP数据包做任何修改。
 
 # 代码介绍
 
+=======
+
+* OLSR不需要对IP数据包做任何修改。
