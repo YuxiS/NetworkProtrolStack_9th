@@ -258,73 +258,75 @@
 
     <code>T_time = current time + validity time</code>
 
-  ### 1.2.6 路由表计算
+### 1.2.6 路由表计算
 
-  <p style="text-indent:2em">每个节点都拥有一个路由表，通过路由表节点能够让网络中其他节点发送信息.路由表是基于本地的链接信息集和拓扑集构建的，所以这两个集合一旦有任何一个发生变化，路由表都需要重新计算。</p>
-  * 当以下任何一个有变化时，都需要更新路由表:
-    * 链路集
-    * 邻居集
-    * 拓扑集
-    * 二条邻居集
-    * 多接口关联信息集
-
-  路由表计算方法如下：
-
-  * 删除路由表中所有条目
-
-  * 新增加路由表项从以对称邻居作为目的节点开始。因此，对于邻居集中的每个邻居元组，都有:
-
-    <code>N_status = SYM</code>
-
-    并且，对于邻居节点的每个关联链接元组，都有<code>L_time >= current time</code>,路由表中新加的表项为:
-
-    <code>R_dest_addr = 关联链接元组的L_neighbor_iface_addr</code>
-
-    <code>R_next_addr = 关联链接元组的L_neighbor_iface_addr</code>
-
-    <code> R_dist = 1</code>
-
-    <code>R_iface_addr = 关联链接元组的L_local_iface_addr</code>
-
-    如果按照上述情况，没有R_dest_addr等于邻居节点的主地址，则必须添加新的路由表项:
-
-    <code> R_dest_addr = 邻居的Main address</code>
-
-    <code>R_next_addr = L_time>0的关联链接元组的L_neighbor_iface_addr</code>
-
-    <code>R_dist = 1</code>
-
-    <code>R_iface_addr = 关联链接元组的L_local_iface</code>
-
-  * 对于严格二条邻居节点，如果二跳邻居集中至少存在一项记录中N_neighbor_main_addr对于一个willingness不为WILL_NEVER的节点，选择一个二跳邻居节点，并在路由表中添加新表项：
-
-    <code>R_dest_addr = 二跳邻居的Main Address</code>
-
-    <code>R_next_addr = 路由表项中R_dest_addr等于二跳邻居N_neighbor_main_addr的记录的R_next_addr</code>
-
-    <code>R_dist = 2 </code>
-
-    <code>R_ifacce_addr = 路由表中R_dest_addr等于二跳元组中N_neighbor_main-addr的记录的R_iface_addr</code>
-
-  * 对于h+1跳的节点，按照Dijkstra算法加入路由表中
+<p style="text-indent:2em">每个节点都拥有一个路由表，通过路由表节点能够让网络中其他节点发送信息.路由表是基于本地的链接信息集和拓扑集构建的，所以这两个集合一旦有任何一个发生变化，路由表都需要重新计算。</p>
+* 当以下任何一个有变化时，都需要更新路由表:
+  * 链路集
+  * 邻居集
+  * 拓扑集
+  * 二条邻居集
+  * 多接口关联信息集
   
-  * 对于多接口关联信息集中的每个实体，如果不存在一个路由表项：
-  
-    <code>R_dest_addr == I_main_addr</code>
-  
-    并且，也没有表项：
-  
-    <code>R_dest_addr == I_iface_addr</code>
-  
-    则添加一个新表项：
-  
-    <code>R_dext_addr = I_iface_addr</code>
-  
-    <code>R_dext_addr = R_next_addr</code>
-  
-    <code>R_dist = R_dist</code>
-  
-    <code> R_iface_addr = R_iface_addr</code>
+  路由表的更新既不在网络中，也不在一跳邻居中生成或触发任何消息。
+
+路由表计算方法如下：
+
+* 删除路由表中所有条目
+
+* 新增加路由表项从以对称邻居作为目的节点开始。因此，对于邻居集中的每个邻居元组，都有:
+
+  <code>N_status = SYM</code>
+
+  并且，对于邻居节点的每个关联链接元组，都有<code>L_time >= current time</code>,路由表中新加的表项为:
+
+  <code>R_dest_addr = 关联链接元组的L_neighbor_iface_addr</code>
+
+  <code>R_next_addr = 关联链接元组的L_neighbor_iface_addr</code>
+
+  <code> R_dist = 1</code>
+
+  <code>R_iface_addr = 关联链接元组的L_local_iface_addr</code>
+
+  如果按照上述情况，没有R_dest_addr等于邻居节点的主地址，则必须添加新的路由表项:
+
+  <code> R_dest_addr = 邻居的Main address</code>
+
+  <code>R_next_addr = L_time>0的关联链接元组的L_neighbor_iface_addr</code>
+
+  <code>R_dist = 1</code>
+
+  <code>R_iface_addr = 关联链接元组的L_local_iface</code>
+
+* 对于严格二条邻居节点，如果二跳邻居集中至少存在一项记录中N_neighbor_main_addr对于一个willingness不为WILL_NEVER的节点，选择一个二跳邻居节点，并在路由表中添加新表项：
+
+  <code>R_dest_addr = 二跳邻居的Main Address</code>
+
+  <code>R_next_addr = 路由表项中R_dest_addr等于二跳邻居N_neighbor_main_addr的记录的R_next_addr</code>
+
+  <code>R_dist = 2 </code>
+
+  <code>R_ifacce_addr = 路由表中R_dest_addr等于二跳元组中N_neighbor_main-addr的记录的R_iface_addr</code>
+
+* 对于h+1跳的节点，按照Dijkstra算法加入路由表中
+
+* 对于多接口关联信息集中的每个实体，如果不存在一个路由表项：
+
+  <code>R_dest_addr == I_main_addr</code>
+
+  并且，也没有表项：
+
+  <code>R_dest_addr == I_iface_addr</code>
+
+  则添加一个新表项：
+
+  <code>R_dext_addr = I_iface_addr</code>
+
+  <code>R_dext_addr = R_next_addr</code>
+
+  <code>R_dist = R_dist</code>
+
+  <code> R_iface_addr = R_iface_addr</code>
 
 ## 1.3 OLSR的优点和局限性
 * OLSR协议是一种先应式路由协议，具有查找路由延时小的优点。
@@ -334,5 +336,701 @@
 * OLSR最初就是为以完全分布式方式工作，不依赖任何中心实体。
 * OLSR不需要对IP数据包做任何修改。
 
-# 2.代码概述
+# 2.代码分析
 
+### 2.1 文件介绍
+
+### 2.2 数据结构
+
+### 2.3 邻居检测
+
+### 2.4 MPR
+
+### 2.5 拓扑发现
+
+网络中的MPR节点每隔一段时间会广播TC分组，用以维护网络的拓扑信息。在算法描述中已经说明，对于相同的TC分组,节点只有在第一次收到且其选择为MPR的情况下才转发，这样减少了网络中的广播包的数量，尽可能的避免了网络风暴。
+
+#### 2.5.1 TC分组生成
+
+___
+
+```c
+void
+generate_tc(void *p)
+{
+  struct tc_message tcpacket;
+  struct interface *ifn = (struct interface *)p;
+
+  olsr_build_tc_packet(&tcpacket);
+
+  if (queue_tc(&tcpacket, ifn) && TIMED_OUT(ifn->fwdtimer)) {
+    set_buffer_timer(ifn);
+  }
+
+  olsr_free_tc_packet(&tcpacket);
+}
+```
+
+____
+
+首先构建一个TC分组的结构体，然后使用olsr_build_tc_packet（）函数对该结构体进行一些初始化和赋值操作，然后queue_tc（）函数将该分组加入MID队列中，同时TIMED_OUT()检测接口的时间的时间戳是否已满，调用set_buffer_timer()设置定时器。最后由接口ifn释放该分组，然后调用olsr_free_tc_packet()函数释放内存。
+
+#### 2.5.2 拓扑信息集的初始化
+
+____
+
+```c
+void
+olsr_init_tc(void)
+{
+  OLSR_PRINTF(5, "TC: init topo\n");
+
+  avl_init(&tc_tree, avl_comp_default);
+
+  /*
+   * Get some cookies for getting stats to ease troubleshooting.
+   */
+  tc_edge_gc_timer_cookie = olsr_alloc_cookie("TC edge GC", OLSR_COOKIE_TYPE_TIMER);
+  tc_validity_timer_cookie = olsr_alloc_cookie("TC validity", OLSR_COOKIE_TYPE_TIMER);
+
+  tc_edge_mem_cookie = olsr_alloc_cookie("tc_edge_entry", OLSR_COOKIE_TYPE_MEMORY);
+  olsr_cookie_set_memory_size(tc_edge_mem_cookie, sizeof(struct tc_edge_entry) + active_lq_handler->tc_lq_size);
+
+  tc_mem_cookie = olsr_alloc_cookie("tc_entry", OLSR_COOKIE_TYPE_MEMORY);
+  olsr_cookie_set_memory_size(tc_mem_cookie, sizeof(struct tc_entry));
+
+  /*
+   * Add a TC entry for ourselves.
+   */
+  tc_myself = olsr_add_tc_entry(&olsr_cnf->main_addr);
+}
+
+```
+
+____
+
+6:avl_init()初始化拓扑信息集为avl树。
+
+11-18: 对拓扑表集合进行初始化，主要通过从cookie中获取的值为拓扑表集合的属性做初始化赋值。
+
+23:调用olsr_add_tc_entry（）配置一个entry,并将该entry加入avl树中。
+
+#### 2.5.3 TC分组处理
+
+____
+
+```c
+  /* We are only interested in TC message types. */
+  pkt_get_u8(&curr, &type);
+  if ((type != LQ_TC_MESSAGE) && (type != TC_MESSAGE)) {
+    return false;
+  }
+
+  /*
+   * If the sender interface (NB: not originator) of this message
+   * is not in the symmetric 1-hop neighborhood of this node, the
+   * message MUST be discarded.
+   */
+  if (check_neighbor_link(from_addr) != SYM_LINK) {
+    OLSR_PRINTF(2, "Received TC from NON SYM neighbor %s\n", olsr_ip_to_string(&buf, from_addr));
+    return false;
+  }
+```
+
+____
+
+当节点接受到一个TC分组后，只考虑其消息类型。如果类型不等于LQ_TC_MESSAGE或者TC_MESSAGE，则直接丢弃。
+
+如果检测到该消息的发送者接口不是本节点的对称一跳邻居，则丢弃该分组。
+
+____
+
+```
+    if (olsr_seq_inrange_high((int)tc->msg_seq - TC_SEQNO_WINDOW, tc->msg_seq, msg_seq)
+        && olsr_seq_inrange_high((int)tc->ansn - TC_ANSN_WINDOW, tc->ansn, ansn)) {
+
+      /*
+       * Ignore already seen seq/ansn values (small window for mesh memory)
+       */
+      if ((tc->msg_seq == msg_seq) || (tc->ignored++ < 32)) {
+        return false;
+      }
+
+      OLSR_PRINTF(1, "Ignored to much LQTC's for %s, restarting\n", olsr_ip_to_string(&buf, &originator));
+```
+
+____
+
+如果分组中的msg_seq和外部变量msg_seq相等，且ignored小于32，说明该分组已经处理过，所以丢弃该分组，返回false。
+
+____
+
+```c
+/*
+   * Generate a new tc_entry in the lsdb and store the sequence number.
+   */
+  if (!tc) {
+    tc = olsr_add_tc_entry(&originator);
+  }
+
+  /*
+   * Update the tc entry.
+   */
+  tc->msg_hops = msg_hops;
+  tc->msg_seq = msg_seq;
+  tc->ansn = ansn;
+  tc->ignored = 0;
+  tc->err_seq_valid = false;
+
+  OLSR_PRINTF(1, "Processing TC from %s, seq 0x%04x\n", olsr_ip_to_string(&buf, &originator), tc->msg_seq);
+```
+
+____
+
+如果现有的拓扑集中没有当前收到的TC分组中的Main Address，则添加一条新纪录，用TC分组中获取到的信息为该记录赋值。
+
+____
+
+```c
+ /*
+   * Calculate real border IPs.
+   */
+  if (borderSet) {
+    borderSet = olsr_calculate_tc_border(lower_border, &lower_border_ip, upper_border, &upper_border_ip);
+  }
+
+  /*
+   * Set or change the expiration timer accordingly.
+   */
+  olsr_set_timer(&tc->validity_timer, vtime, OLSR_TC_VTIME_JITTER, OLSR_TIMER_ONESHOT, &olsr_expire_tc_entry, tc,
+                 tc_validity_timer_cookie);
+
+  if (emptyTC && lower_border == 0xff && upper_border == 0xff) {
+    /* handle empty TC with border flags 0xff */
+    memset(&lower_border_ip, 0x00, sizeof(lower_border_ip));
+    memset(&upper_border_ip, 0xff, sizeof(upper_border_ip));
+    borderSet = 1;
+  }
+```
+
+____
+
+调用olsr_calculate_tc_border()计算borderset的值，并且重置相关的定时器。
+
+#### 2.5.4 拓扑信息集的删除
+
+____
+
+```c
+void
+olsr_delete_tc_entry(struct tc_entry *tc)
+{
+  struct tc_edge_entry *tc_edge;
+  struct rt_path *rtp;
+#if 0
+  struct ipaddr_str buf;
+  OLSR_PRINTF(1, "TC: del entry %s\n", olsr_ip_to_string(&buf, &tc->addr));
+#endif
+
+  /* delete gateway if available */
+#ifdef LINUX_NETLINK_ROUTING
+  olsr_delete_gateway_entry(&tc->addr, FORCE_DELETE_GW_ENTRY);
+#endif
+  /*
+   * Delete the rt_path for ourselves.
+   */
+  olsr_delete_routing_table(&tc->addr, olsr_cnf->maxplen, &tc->addr);
+
+  /* The edgetree and prefix tree must be empty before */
+  OLSR_FOR_ALL_TC_EDGE_ENTRIES(tc, tc_edge) {
+    olsr_delete_tc_edge_entry(tc_edge);
+  } OLSR_FOR_ALL_TC_EDGE_ENTRIES_END(tc, tc_edge);
+
+  OLSR_FOR_ALL_PREFIX_ENTRIES(tc, rtp) {
+    olsr_delete_rt_path(rtp);
+  } OLSR_FOR_ALL_PREFIX_ENTRIES_END(tc, rtp);
+
+  /* Stop running timers */
+  olsr_stop_timer(tc->edge_gc_timer);
+  tc->edge_gc_timer = NULL;
+  olsr_stop_timer(tc->validity_timer);
+  tc->validity_timer = NULL;
+
+  avl_delete(&tc_tree, &tc->vertex_node);
+  olsr_unlock_tc_entry(tc);
+}
+```
+
+____
+
+该函数的功能是删除一个tc_entry.
+
+如果预定义了 LINUX_NETLINK_ROUTING(即在linux系统上运行)，则删除网关信息。删除时对网关的时间信息，网关协议等等先进行判断，判断这些信息是否为空后再进行删除。
+
+首先删除本地路由表中的rt_path；
+
+清空所有的边，停止相应的计时器，将edge_gc_timer和validity_time属性都置为空。
+
+最后在avl树中删除相应节点。
+
+### 2.6 路由表计算
+
+#### 2.6.1 相关结构体
+
+____
+
+```c
+/* a composite metric is used for path selection */
+struct rt_metric {
+  olsr_linkcost cost;
+  uint32_t hops;
+};
+
+/* a nexthop is a pointer to a gateway router plus an interface */
+struct rt_nexthop {
+  union olsr_ip_addr gateway;          /* gateway router */
+  int iif_index;                       /* outgoing interface index */
+};
+```
+
+____
+
+rt_metric:在路径选择时使用符合矩阵，矩阵中包括两个节点间的路径花销和跳数。
+
+rt_nexthop:该结构体表示吓一跳的网关和接口索引。
+
+____
+
+```c
+/*
+ * Every prefix in our RIB needs a route entry that contains
+ * the nexthop of the best path as installed in the kernel FIB.
+ * The route entry is the root of a rt_path tree of equal prefixes
+ * originated by different routers. It also contains a shortcut
+ * for accessing the best route among all contributing routes.
+ */
+struct rt_entry {
+  struct olsr_ip_prefix rt_dst;
+  struct avl_node rt_tree_node;
+  struct rt_path *rt_best;             /* shortcut to the best path */
+  struct rt_nexthop rt_nexthop;        /* nexthop of FIB route */
+  struct rt_metric rt_metric;          /* metric of FIB route */
+  struct avl_tree rt_path_tree;
+  struct list_node rt_change_node;     /* queue for kernel FIB add/chg/del */
+};
+
+```
+
+____
+
+每一个RIB需要一个路由接口，这个接口中包含最佳路径的下一跳网关信息，同时该接口时rt_path_tree的根节点。同样也包含了所有路由信息中最佳的一个路径。rt_dst包含该信息的路由地址和前缀长度。rt_path_tree是一个avl树，rt_tree_node表示最短路径的引用。
+
+____
+
+```c
+struct rt_path {
+  struct rt_entry *rtp_rt;             /* backpointer to owning route head */
+  struct tc_entry *rtp_tc;             /* backpointer to owning tc entry */
+  struct rt_nexthop rtp_nexthop;
+  struct rt_metric rtp_metric;
+  struct avl_node rtp_tree_node;       /* global rtp node */
+  union olsr_ip_addr rtp_originator;   /* originator of the route */
+  struct avl_node rtp_prefix_tree_node; /* tc entry rtp node */
+  struct olsr_ip_prefix rtp_dst;       /* the prefix */
+  uint32_t rtp_version;                /* for detection of outdated rt_paths */
+  uint8_t rtp_origin;                  /* internal, MID or
+  HNA */
+};
+```
+
+____
+
+这个结构体主要描述了rt_path的成员，每接收到一个rt_path就将其加入RIB。根据Dijkstra算法计算出的结果可以得到最优路径，同时可以得到一个最小的矩阵。rt_path首先被加入到tc_entry树中，如果根据Dijkstra计算可得当前tc_entry是可达到，则在全局RIB树中加入下一跳地址。
+
+____
+
+```c
+union olsr_kernel_route {
+  struct {
+    struct sockaddr rt_dst;
+    struct sockaddr rt_gateway;
+    uint32_t metric;
+  } v4;
+
+  struct {
+    struct in6_addr rtmsg_dst;
+    struct in6_addr rtmsg_gateway;
+    uint32_t rtmsg_metric;
+  } v6;
+};
+```
+
+____
+
+该联合体分别定义了IPV4和IPV6的olsr核心路由表结构。路由表项中主要包含目的地和网关。
+
+____
+
+```c
+enum olsr_rt_origin {
+  OLSR_RT_ORIGIN_MIN,
+  OLSR_RT_ORIGIN_INT,
+  OLSR_RT_ORIGIN_MID,
+  OLSR_RT_ORIGIN_HNA,
+  OLSR_RT_ORIGIN_MAX
+};
+```
+
+____
+
+OLSR中有三种不同的路由类型，INT（internal route）有简单的TC分组接收生成，MID由MID分组生成并且HNA路由由HNA公告生成。
+
+#### 2.6.2 路由表计算
+
+____
+
+```c
+void
+olsr_init_routing_table(void)
+{
+  OLSR_PRINTF(5, "RIB: init routing tree\n");
+
+  /* the routing tree */
+  avl_init(&routingtree, avl_comp_prefix_default);
+  routingtree_version = 0;
+
+  /*
+   * Get some cookies for memory stats and memory recycling.
+   */
+  rt_mem_cookie = olsr_alloc_cookie("rt_entry", OLSR_COOKIE_TYPE_MEMORY);
+  olsr_cookie_set_memory_size(rt_mem_cookie, sizeof(struct rt_entry));
+
+  rtp_mem_cookie = olsr_alloc_cookie("rt_path", OLSR_COOKIE_TYPE_MEMORY);
+  olsr_cookie_set_memory_size(rtp_mem_cookie, sizeof(struct rt_path));
+}
+```
+
+____
+
+该函数的主要功能是初始化路由表。
+
+首先调用avl_init()将路由表初始化为avl树，然后维护一个版本号routingtree_version用以检测每一个每一个rt_entry和rt_path，检查其是否过期，并将版本号初始化为0。
+
+然后是为rt_entry和rt_path分配内存，并创建相应的cookie。
+
+_____
+
+```c
+static struct rt_entry *
+olsr_alloc_rt_entry(struct olsr_ip_prefix *prefix)
+{
+  struct rt_entry *rt = olsr_cookie_malloc(rt_mem_cookie);
+  if (!rt) {
+    return NULL;
+  }
+
+  memset(rt, 0, sizeof(*rt));
+
+  /* Mark this entry as fresh (see process_routes.c:512) */
+  rt->rt_nexthop.iif_index = -1;
+
+  /* set key and backpointer prior to tree insertion */
+  rt->rt_dst = *prefix;
+
+  rt->rt_tree_node.key = &rt->rt_dst;
+  avl_insert(&routingtree, &rt->rt_tree_node, AVL_DUP_NO);
+
+  /* init the originator subtree */
+  avl_init(&rt->rt_path_tree, avl_comp_default);
+
+  return rt;
+}
+```
+
+____
+
+该函数的功能是创建一个路由表项，并作一些初始化操作后将其插入avl树中。
+
+首先是为新的路由表项申请内存空间，并且将空间清零。
+
+标识该表项为新建表项，并将目的地址设置为参数提供的入口地址。
+
+把该表项的树节点插入avl树，并初始化该树。
+
+____
+
+```c
+void
+olsr_insert_rt_path(struct rt_path *rtp, struct tc_entry *tc, struct link_entry *link)
+{
+  struct rt_entry *rt;
+  struct avl_node *node;
+
+  /*
+   * no unreachable routes please.
+   */
+  if (tc->path_cost == ROUTE_COST_BROKEN) {
+    return;
+  }
+
+  /*
+   * No bogus prefix lengths.
+   */
+  if (rtp->rtp_dst.prefix_len > olsr_cnf->maxplen) {
+    return;
+  }
+
+  /*
+   * first check if there is a route_entry for the prefix.
+   */
+  node = avl_find(&routingtree, &rtp->rtp_dst);
+
+  if (!node) {
+
+    /* no route entry yet */
+    rt = olsr_alloc_rt_entry(&rtp->rtp_dst);
+
+    if (!rt) {
+      return;
+    }
+
+  } else {
+    rt = rt_tree2rt(node);
+  }
+
+  /* Now insert the rt_path to the owning rt_entry tree */
+  rtp->rtp_originator = tc->addr;
+
+  /* set key and backpointer prior to tree insertion */
+  rtp->rtp_tree_node.key = &rtp->rtp_originator;
+
+  /* insert to the route entry originator tree */
+  avl_insert(&rt->rt_path_tree, &rtp->rtp_tree_node, AVL_DUP_NO);
+
+  /* backlink to the owning route entry */
+  rtp->rtp_rt = rt;
+
+  /* update the version field and relevant parameters */
+  olsr_update_rt_path(rtp, tc, link);
+}
+```
+
+____
+
+该函数功能是对于每个rt_path创建一个路由表项并将其加入全局的RIB树中。
+
+首先检查传入的参数是否合法，如果传入的tc_entry的path_cost为ROUTE_COST_BROKEN，或者传入的rtp的目的地址长度大于所设置的最大地址长度，直接返回NULL。
+
+然后调用avl_find()函数检查传入的rtp节点是否在路由表中，如果节点不在路由表中，将其加入avl树中。如果在，则将其从avl_node类型转为rt_entry类型。
+
+把新节点加入avl树，然后改变相应的参数，更新路由表。
+
+____
+
+```c
+void
+olsr_update_rt_path(struct rt_path *rtp, struct tc_entry *tc, struct link_entry *link)
+{
+
+  rtp->rtp_version = routingtree_version;
+
+  /* gateway */
+  rtp->rtp_nexthop.gateway = link->neighbor_iface_addr;
+
+  /* interface */
+  rtp->rtp_nexthop.iif_index = link->inter->if_index;
+
+  /* metric/etx */
+  rtp->rtp_metric.hops = tc->hops;
+  rtp->rtp_metric.cost = tc->path_cost;
+}
+```
+
+该函数的主要功能是更新路由路径的网关，接口和路由跳数和路径的版本信息。
+
+____
+
+```c
+void
+olsr_delete_rt_path(struct rt_path *rtp)
+{
+
+  /* remove from the originator tree */
+  if (rtp->rtp_rt) {
+    avl_delete(&rtp->rtp_rt->rt_path_tree, &rtp->rtp_tree_node);
+    rtp->rtp_rt = NULL;
+  }
+
+  /* remove from the tc prefix tree */
+  if (rtp->rtp_tc) {
+    avl_delete(&rtp->rtp_tc->prefix_tree, &rtp->rtp_prefix_tree_node);
+    olsr_unlock_tc_entry(rtp->rtp_tc);
+    rtp->rtp_tc = NULL;
+  }
+
+  /* no current inet gw if the rt_path is removed */
+  if (current_inetgw == rtp) {
+    current_inetgw = NULL;
+  }
+
+  olsr_cookie_free(rtp_mem_cookie, rtp);
+}
+```
+
+____
+
+该函数功能是删除并释放一条路由路径。
+
+首先将rtp所指的树节点从所在的树里面删除供将指向该树根节点的指针置空。
+
+然后将其从前缀树中删除，并解锁相应的tc_entry。
+
+最后把rtp所指向的树节点从rtp树里面删除，释放cookie所占用的内存。
+
+____
+
+```c
+static bool
+olsr_cmp_rtp(const struct rt_path *rtp1, const struct rt_path *rtp2, const struct rt_path *inetgw)
+{
+  olsr_linkcost etx1 = rtp1->rtp_metric.cost;
+  olsr_linkcost etx2 = rtp2->rtp_metric.cost;
+  if (inetgw == rtp1)
+    etx1 *= olsr_cnf->lq_nat_thresh;
+  if (inetgw == rtp2)
+    etx2 *= olsr_cnf->lq_nat_thresh;
+
+  /* etx comes first */
+  if (etx1 < etx2) {
+    return true;
+  }
+  if (etx1 > etx2) {
+    return false;
+  }
+
+  /* hopcount is next tie breaker */
+  if (rtp1->rtp_metric.hops < rtp2->rtp_metric.hops) {
+    return true;
+  }
+  if (rtp1->rtp_metric.hops > rtp2->rtp_metric.hops) {
+    return false;
+  }
+
+  /* originator (which is guaranteed to be unique) is final tie breaker */
+  if (memcmp(&rtp1->rtp_originator, &rtp2->rtp_originator, olsr_cnf->ipsize) < 0) {
+    return true;
+  }
+
+  return false;
+}
+```
+
+____
+
+该函数的功能是比较两个路由路径，如过第一个路径更好，返回TRUE，否则，返回False。
+
+首先比较路径花销，花销小的路径更优。
+
+如果路径花销相同，则比较路径跳数，跳数更小的路径更优。
+
+如果前两项比较结果相同，则比较源地址，源地址小的更优。
+
+____
+
+```c
+void
+olsr_rt_best(struct rt_entry *rt)
+{
+  /* grab the first entry */
+  struct avl_node *node = avl_walk_first(&rt->rt_path_tree);
+
+  assert(node != 0);            /* should not happen */
+
+  rt->rt_best = rtp_tree2rtp(node);
+
+  /* walk all remaining originator entries */
+  while ((node = avl_walk_next(node))) {
+    struct rt_path *rtp = rtp_tree2rtp(node);
+
+    if (olsr_cmp_rtp(rtp, rt->rt_best, current_inetgw)) {
+      rt->rt_best = rtp;
+    }
+  }
+
+  if (0 == rt->rt_dst.prefix_len) {
+    current_inetgw = rt->rt_best;
+  }
+}
+```
+
+____
+
+运行最优路径，首先得到第一个条表项后遍历所有表项，找到一条最有路径并修改当前网关路径到最优路径。
+
+首先调用avl_walk_first()函数从rt.rt_path_tree中的到第一个条目并坚持其是否为0，然后把节点转为rt_entry类型。
+
+然后遍历整棵avl树，并比较当前路径和当前最优路径，获取最优路径。
+
+____
+
+```c
+struct rt_path *
+olsr_insert_routing_table(union olsr_ip_addr *dst, int plen, union olsr_ip_addr *originator, int origin)
+{
+#ifdef DEBUG
+  struct ipaddr_str dstbuf, origbuf;
+#endif
+  struct tc_entry *tc;
+  struct rt_path *rtp;
+  struct avl_node *node;
+  struct olsr_ip_prefix prefix;
+
+  /*
+   * No bogus prefix lengths.
+   */
+  if (plen > olsr_cnf->maxplen) {
+    return NULL;
+  }
+
+  /*
+   * For all routes we use the tc_entry as an hookup point.
+   * If the tc_entry is disconnected, i.e. has no edges it will not
+   * be explored during SPF run.
+   */
+  tc = olsr_locate_tc_entry(originator);
+
+  /*
+   * first check if there is a rt_path for the prefix.
+   */
+  prefix.prefix = *dst;
+  prefix.prefix_len = plen;
+
+  node = avl_find(&tc->prefix_tree, &prefix);
+
+  if (!node) {
+
+    /* no rt_path for this prefix yet */
+    rtp = olsr_alloc_rt_path(tc, &prefix, origin);
+
+    if (!rtp) {
+      return NULL;
+    }
+#ifdef DEBUG
+    OLSR_PRINTF(1, "RIB: add prefix %s/%u from %s\n", olsr_ip_to_string(&dstbuf, dst), plen,
+                olsr_ip_to_string(&origbuf, originator));
+#endif
+
+    /* overload the hna change bit for flagging a prefix change */
+    changes_hna = true;
+
+  } else {
+    rtp = rtp_prefix_tree2rtp(node);
+  }
+
+  return rtp;
+}
+```
+
+____
+
+数功能是将一个前缀节点插入一颗前缀树。首先检查是否该rt_path是已知的，如果不是，则创建，如果根据Dijkstra算法得到节点不可达，最后计算最短路径是不考虑。
