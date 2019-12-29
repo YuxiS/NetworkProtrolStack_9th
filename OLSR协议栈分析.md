@@ -355,20 +355,20 @@
 ___
 
 ```c
-void
-generate_tc(void *p)
-{
-  struct tc_message tcpacket;
-  struct interface *ifn = (struct interface *)p;
-
-  olsr_build_tc_packet(&tcpacket);
-
-  if (queue_tc(&tcpacket, ifn) && TIMED_OUT(ifn->fwdtimer)) {
-    set_buffer_timer(ifn);
-  }
-
-  olsr_free_tc_packet(&tcpacket);
-}
+81	void
+82	generate_tc(void *p)
+83	{
+84	  struct tc_message tcpacket;
+85	  struct interface *ifn = (struct interface *)p;
+86
+87	  olsr_build_tc_packet(&tcpacket);
+88
+89	  if (queue_tc(&tcpacket, ifn) && TIMED_OUT(ifn->fwdtimer)) {
+90		set_buffer_timer(ifn);
+91	  }
+92
+93	  olsr_free_tc_packet(&tcpacket);
+94	}
 ```
 
 ____
@@ -380,31 +380,30 @@ ____
 ____
 
 ```c
-void
-olsr_init_tc(void)
-{
-  OLSR_PRINTF(5, "TC: init topo\n");
-
-  avl_init(&tc_tree, avl_comp_default);
-
-  /*
-   * Get some cookies for getting stats to ease troubleshooting.
-   */
-  tc_edge_gc_timer_cookie = olsr_alloc_cookie("TC edge GC", OLSR_COOKIE_TYPE_TIMER);
-  tc_validity_timer_cookie = olsr_alloc_cookie("TC validity", OLSR_COOKIE_TYPE_TIMER);
-
-  tc_edge_mem_cookie = olsr_alloc_cookie("tc_edge_entry", OLSR_COOKIE_TYPE_MEMORY);
-  olsr_cookie_set_memory_size(tc_edge_mem_cookie, sizeof(struct tc_edge_entry) + active_lq_handler->tc_lq_size);
-
-  tc_mem_cookie = olsr_alloc_cookie("tc_entry", OLSR_COOKIE_TYPE_MEMORY);
-  olsr_cookie_set_memory_size(tc_mem_cookie, sizeof(struct tc_entry));
-
-  /*
-   * Add a TC entry for ourselves.
-   */
-  tc_myself = olsr_add_tc_entry(&olsr_cnf->main_addr);
-}
-
+185	void
+186	olsr_init_tc(void)
+187	{
+188	  OLSR_PRINTF(5, "TC: init topo\n");
+189
+190	  avl_init(&tc_tree, avl_comp_default);
+191
+192	  /*
+193	   * Get some cookies for getting stats to ease troubleshooting.
+194	   */
+195	  tc_edge_gc_timer_cookie = olsr_alloc_cookie("TC edge GC", OLSR_COOKIE_TYPE_TIMER);
+196	  tc_validity_timer_cookie = olsr_alloc_cookie("TC validity", OLSR_COOKIE_TYPE_TIMER);
+197
+198	  tc_edge_mem_cookie = olsr_alloc_cookie("tc_edge_entry", OLSR_COOKIE_TYPE_MEMORY);
+199	  olsr_cookie_set_memory_size(tc_edge_mem_cookie, sizeof(struct tc_edge_entry) + active_lq_handler->tc_lq_size);
+200
+201	  tc_mem_cookie = olsr_alloc_cookie("tc_entry", OLSR_COOKIE_TYPE_MEMORY);
+202	  olsr_cookie_set_memory_size(tc_mem_cookie, sizeof(struct tc_entry));
+203
+204	  /*
+205	   * Add a TC entry for ourselves.
+206	   */
+207	  tc_myself = olsr_add_tc_entry(&olsr_cnf->main_addr);
+208	}
 ```
 
 ____
@@ -420,21 +419,21 @@ ____
 ____
 
 ```c
-  /* We are only interested in TC message types. */
-  pkt_get_u8(&curr, &type);
-  if ((type != LQ_TC_MESSAGE) && (type != TC_MESSAGE)) {
-    return false;
-  }
-
-  /*
-   * If the sender interface (NB: not originator) of this message
-   * is not in the symmetric 1-hop neighborhood of this node, the
-   * message MUST be discarded.
-   */
-  if (check_neighbor_link(from_addr) != SYM_LINK) {
-    OLSR_PRINTF(2, "Received TC from NON SYM neighbor %s\n", olsr_ip_to_string(&buf, from_addr));
-    return false;
-  }
+809	  /* We are only interested in TC message types. */
+810	  pkt_get_u8(&curr, &type);
+811	  if ((type != LQ_TC_MESSAGE) && (type != TC_MESSAGE)) {
+812		return false;
+813	  }
+814
+815	  /*
+816	   * If the sender interface (NB: not originator) of this message
+817	   * is not in the symmetric 1-hop neighborhood of this node, the
+818	   * message MUST be discarded.
+819	   */
+820	  if (check_neighbor_link(from_addr) != SYM_LINK) {
+821		OLSR_PRINTF(2, "Received TC from NON SYM neighbor %s\n", olsr_ip_to_string(&buf, from_addr));
+822		return false;
+823	  }
 ```
 
 ____
@@ -445,18 +444,18 @@ ____
 
 ____
 
-```
-    if (olsr_seq_inrange_high((int)tc->msg_seq - TC_SEQNO_WINDOW, tc->msg_seq, msg_seq)
-        && olsr_seq_inrange_high((int)tc->ansn - TC_ANSN_WINDOW, tc->ansn, ansn)) {
-
-      /*
-       * Ignore already seen seq/ansn values (small window for mesh memory)
-       */
-      if ((tc->msg_seq == msg_seq) || (tc->ignored++ < 32)) {
-        return false;
-      }
-
-      OLSR_PRINTF(1, "Ignored to much LQTC's for %s, restarting\n", olsr_ip_to_string(&buf, &originator));
+```c
+847    if (olsr_seq_inrange_high((int)tc->msg_seq - TC_SEQNO_WINDOW, tc->msg_seq, msg_seq)
+848        && olsr_seq_inrange_high((int)tc->ansn - TC_ANSN_WINDOW, tc->ansn, ansn)) {
+849
+850      /*
+851       * Ignore already seen seq/ansn values (small window for mesh memory)
+852       */
+853      if ((tc->msg_seq == msg_seq) || (tc->ignored++ < 32)) {
+854        return false;
+855      }
+856
+857      OLSR_PRINTF(1, "Ignored to much LQTC's for %s, restarting\n", olsr_ip_to_string(&buf, &originator));
 ```
 
 ____
@@ -466,23 +465,23 @@ ____
 ____
 
 ```c
-/*
-   * Generate a new tc_entry in the lsdb and store the sequence number.
-   */
-  if (!tc) {
-    tc = olsr_add_tc_entry(&originator);
-  }
-
-  /*
-   * Update the tc entry.
-   */
-  tc->msg_hops = msg_hops;
-  tc->msg_seq = msg_seq;
-  tc->ansn = ansn;
-  tc->ignored = 0;
-  tc->err_seq_valid = false;
-
-  OLSR_PRINTF(1, "Processing TC from %s, seq 0x%04x\n", olsr_ip_to_string(&buf, &originator), tc->msg_seq);
+878	/*
+879	   * Generate a new tc_entry in the lsdb and store the sequence number.
+880	   */
+881	  if (!tc) {
+882		tc = olsr_add_tc_entry(&originator);
+883	  }
+884
+885	  /*
+886	   * Update the tc entry.
+887	   */
+888	  tc->msg_hops = msg_hops;
+889	  tc->msg_seq = msg_seq;
+890	  tc->ansn = ansn;
+891	  tc->ignored = 0;
+892	  tc->err_seq_valid = false;
+893
+894	  OLSR_PRINTF(1, "Processing TC from %s, seq 0x%04x\n", olsr_ip_to_string(&buf, &originator), tc->msg_seq);
 ```
 
 ____
@@ -492,25 +491,25 @@ ____
 ____
 
 ```c
- /*
-   * Calculate real border IPs.
-   */
-  if (borderSet) {
-    borderSet = olsr_calculate_tc_border(lower_border, &lower_border_ip, upper_border, &upper_border_ip);
-  }
-
-  /*
-   * Set or change the expiration timer accordingly.
-   */
-  olsr_set_timer(&tc->validity_timer, vtime, OLSR_TC_VTIME_JITTER, OLSR_TIMER_ONESHOT, &olsr_expire_tc_entry, tc,
-                 tc_validity_timer_cookie);
-
-  if (emptyTC && lower_border == 0xff && upper_border == 0xff) {
-    /* handle empty TC with border flags 0xff */
-    memset(&lower_border_ip, 0x00, sizeof(lower_border_ip));
-    memset(&upper_border_ip, 0xff, sizeof(upper_border_ip));
-    borderSet = 1;
-  }
+915	 /*
+916	   * Calculate real border IPs.
+917	   */
+918	  if (borderSet) {
+919		borderSet = olsr_calculate_tc_border(lower_border, &lower_border_ip, upper_border, &upper_border_ip);
+920	  }
+921
+922	  /*
+923	   * Set or change the expiration timer accordingly.
+924	   */
+925	  olsr_set_timer(&tc->validity_timer, vtime, OLSR_TC_VTIME_JITTER, OLSR_TIMER_ONESHOT, &olsr_expire_tc_entry, tc,
+926					 tc_validity_timer_cookie);
+927
+928	  if (emptyTC && lower_border == 0xff && upper_border == 0xff) {
+929		/* handle empty TC with border flags 0xff */
+930		memset(&lower_border_ip, 0x00, sizeof(lower_border_ip));
+931		memset(&upper_border_ip, 0xff, sizeof(upper_border_ip));
+932		borderSet = 1;
+933	  }
 ```
 
 ____
@@ -522,43 +521,43 @@ ____
 ____
 
 ```c
-void
-olsr_delete_tc_entry(struct tc_entry *tc)
-{
-  struct tc_edge_entry *tc_edge;
-  struct rt_path *rtp;
-#if 0
-  struct ipaddr_str buf;
-  OLSR_PRINTF(1, "TC: del entry %s\n", olsr_ip_to_string(&buf, &tc->addr));
-#endif
-
-  /* delete gateway if available */
-#ifdef LINUX_NETLINK_ROUTING
-  olsr_delete_gateway_entry(&tc->addr, FORCE_DELETE_GW_ENTRY);
-#endif
-  /*
-   * Delete the rt_path for ourselves.
-   */
-  olsr_delete_routing_table(&tc->addr, olsr_cnf->maxplen, &tc->addr);
-
-  /* The edgetree and prefix tree must be empty before */
-  OLSR_FOR_ALL_TC_EDGE_ENTRIES(tc, tc_edge) {
-    olsr_delete_tc_edge_entry(tc_edge);
-  } OLSR_FOR_ALL_TC_EDGE_ENTRIES_END(tc, tc_edge);
-
-  OLSR_FOR_ALL_PREFIX_ENTRIES(tc, rtp) {
-    olsr_delete_rt_path(rtp);
-  } OLSR_FOR_ALL_PREFIX_ENTRIES_END(tc, rtp);
-
-  /* Stop running timers */
-  olsr_stop_timer(tc->edge_gc_timer);
-  tc->edge_gc_timer = NULL;
-  olsr_stop_timer(tc->validity_timer);
-  tc->validity_timer = NULL;
-
-  avl_delete(&tc_tree, &tc->vertex_node);
-  olsr_unlock_tc_entry(tc);
-}
+278	void
+279	olsr_delete_tc_entry(struct tc_entry *tc)
+280	{
+281	  struct tc_edge_entry *tc_edge;
+282	  struct rt_path *rtp;
+283	#if 0
+284	  struct ipaddr_str buf;
+285	  OLSR_PRINTF(1, "TC: del entry %s\n", olsr_ip_to_string(&buf, &tc->addr));
+286	#endif
+287
+288	  /* delete gateway if available */
+289	#ifdef LINUX_NETLINK_ROUTING
+290	  olsr_delete_gateway_entry(&tc->addr, FORCE_DELETE_GW_ENTRY);
+291	#endif
+292	  /*
+293	   * Delete the rt_path for ourselves.
+294	   */
+295	  olsr_delete_routing_table(&tc->addr, olsr_cnf->maxplen, &tc->addr);
+296
+297	  /* The edgetree and prefix tree must be empty before */
+298	  OLSR_FOR_ALL_TC_EDGE_ENTRIES(tc, tc_edge) {
+299		olsr_delete_tc_edge_entry(tc_edge);
+300	  } OLSR_FOR_ALL_TC_EDGE_ENTRIES_END(tc, tc_edge);
+301
+302	  OLSR_FOR_ALL_PREFIX_ENTRIES(tc, rtp) {
+303		olsr_delete_rt_path(rtp);
+304	  } OLSR_FOR_ALL_PREFIX_ENTRIES_END(tc, rtp);
+305
+306	  /* Stop running timers */
+307	  olsr_stop_timer(tc->edge_gc_timer);
+308	  tc->edge_gc_timer = NULL;
+309	  olsr_stop_timer(tc->validity_timer);
+310	  tc->validity_timer = NULL;
+311
+312	  avl_delete(&tc_tree, &tc->vertex_node);
+313	  olsr_unlock_tc_entry(tc);
+314	}
 ```
 
 ____
@@ -580,17 +579,17 @@ ____
 ____
 
 ```c
-/* a composite metric is used for path selection */
-struct rt_metric {
-  olsr_linkcost cost;
-  uint32_t hops;
-};
-
-/* a nexthop is a pointer to a gateway router plus an interface */
-struct rt_nexthop {
-  union olsr_ip_addr gateway;          /* gateway router */
-  int iif_index;                       /* outgoing interface index */
-};
+85	/* a composite metric is used for path selection */
+86	struct rt_metric {
+87	  olsr_linkcost cost;
+88	  uint32_t hops;
+89	};
+90
+91	/* a nexthop is a pointer to a gateway router plus an interface */
+92	struct rt_nexthop {
+93	  union olsr_ip_addr gateway;          /* gateway router */
+94	  int iif_index;                       /* outgoing interface index */
+95	};
 ```
 
 ____
@@ -602,23 +601,22 @@ rt_nexthop:该结构体表示吓一跳的网关和接口索引。
 ____
 
 ```c
-/*
- * Every prefix in our RIB needs a route entry that contains
- * the nexthop of the best path as installed in the kernel FIB.
- * The route entry is the root of a rt_path tree of equal prefixes
- * originated by different routers. It also contains a shortcut
- * for accessing the best route among all contributing routes.
- */
-struct rt_entry {
-  struct olsr_ip_prefix rt_dst;
-  struct avl_node rt_tree_node;
-  struct rt_path *rt_best;             /* shortcut to the best path */
-  struct rt_nexthop rt_nexthop;        /* nexthop of FIB route */
-  struct rt_metric rt_metric;          /* metric of FIB route */
-  struct avl_tree rt_path_tree;
-  struct list_node rt_change_node;     /* queue for kernel FIB add/chg/del */
-};
-
+78	/*
+79	 * Every prefix in our RIB needs a route entry that contains
+80	 * the nexthop of the best path as installed in the kernel FIB.
+81	 * The route entry is the root of a rt_path tree of equal prefixes
+82	 * originated by different routers. It also contains a shortcut
+83	 * for accessing the best route among all contributing routes.
+84	 */
+85	struct rt_entry {
+86	  struct olsr_ip_prefix rt_dst;
+87	  struct avl_node rt_tree_node;
+88	  struct rt_path *rt_best;             /* shortcut to the best path */
+89	  struct rt_nexthop rt_nexthop;        /* nexthop of FIB route */
+90	  struct rt_metric rt_metric;          /* metric of FIB route */
+91	  struct avl_tree rt_path_tree;
+92	  struct list_node rt_change_node;     /* queue for kernel FIB add/chg/del */
+93	};
 ```
 
 ____
@@ -628,19 +626,19 @@ ____
 ____
 
 ```c
-struct rt_path {
-  struct rt_entry *rtp_rt;             /* backpointer to owning route head */
-  struct tc_entry *rtp_tc;             /* backpointer to owning tc entry */
-  struct rt_nexthop rtp_nexthop;
-  struct rt_metric rtp_metric;
-  struct avl_node rtp_tree_node;       /* global rtp node */
-  union olsr_ip_addr rtp_originator;   /* originator of the route */
-  struct avl_node rtp_prefix_tree_node; /* tc entry rtp node */
-  struct olsr_ip_prefix rtp_dst;       /* the prefix */
-  uint32_t rtp_version;                /* for detection of outdated rt_paths */
-  uint8_t rtp_origin;                  /* internal, MID or
-  HNA */
-};
+106	struct rt_path {
+107	  struct rt_entry *rtp_rt;             /* backpointer to owning route head */
+108	  struct tc_entry *rtp_tc;             /* backpointer to owning tc entry */
+109	  struct rt_nexthop rtp_nexthop;
+110	  struct rt_metric rtp_metric;
+111	  struct avl_node rtp_tree_node;       /* global rtp node */
+112	  union olsr_ip_addr rtp_originator;   /* originator of the route */
+113	  struct avl_node rtp_prefix_tree_node; /* tc entry rtp node */
+114	  struct olsr_ip_prefix rtp_dst;       /* the prefix */
+115	  uint32_t rtp_version;                /* for detection of outdated rt_paths */
+116	  uint8_t rtp_origin;                  /* internal, MID or
+117	  HNA */
+118	};
 ```
 
 ____
@@ -650,19 +648,19 @@ ____
 ____
 
 ```c
-union olsr_kernel_route {
-  struct {
-    struct sockaddr rt_dst;
-    struct sockaddr rt_gateway;
-    uint32_t metric;
-  } v4;
-
-  struct {
-    struct in6_addr rtmsg_dst;
-    struct in6_addr rtmsg_gateway;
-    uint32_t rtmsg_metric;
-  } v6;
-};
+182	union olsr_kernel_route {
+183	  struct {
+184		struct sockaddr rt_dst;
+185		struct sockaddr rt_gateway;
+186		uint32_t metric;
+187	  } v4;
+188
+189	  struct {
+190		struct in6_addr rtmsg_dst;
+191		struct in6_addr rtmsg_gateway;
+192		uint32_t rtmsg_metric;
+193	  } v6;
+194	};
 ```
 
 ____
@@ -672,13 +670,13 @@ ____
 ____
 
 ```c
-enum olsr_rt_origin {
-  OLSR_RT_ORIGIN_MIN,
-  OLSR_RT_ORIGIN_INT,
-  OLSR_RT_ORIGIN_MID,
-  OLSR_RT_ORIGIN_HNA,
-  OLSR_RT_ORIGIN_MAX
-};
+129	enum olsr_rt_origin {
+130	  OLSR_RT_ORIGIN_MIN,
+131	  OLSR_RT_ORIGIN_INT,
+132	  OLSR_RT_ORIGIN_MID,
+133	  OLSR_RT_ORIGIN_HNA,
+134	  OLSR_RT_ORIGIN_MAX
+135	};
 ```
 
 ____
@@ -690,24 +688,24 @@ OLSR中有三种不同的路由类型，INT（internal route）有简单的TC分
 ____
 
 ```c
-void
-olsr_init_routing_table(void)
-{
-  OLSR_PRINTF(5, "RIB: init routing tree\n");
-
-  /* the routing tree */
-  avl_init(&routingtree, avl_comp_prefix_default);
-  routingtree_version = 0;
-
-  /*
-   * Get some cookies for memory stats and memory recycling.
-   */
-  rt_mem_cookie = olsr_alloc_cookie("rt_entry", OLSR_COOKIE_TYPE_MEMORY);
-  olsr_cookie_set_memory_size(rt_mem_cookie, sizeof(struct rt_entry));
-
-  rtp_mem_cookie = olsr_alloc_cookie("rt_path", OLSR_COOKIE_TYPE_MEMORY);
-  olsr_cookie_set_memory_size(rtp_mem_cookie, sizeof(struct rt_path));
-}
+167	void
+168	olsr_init_routing_table(void)
+169	{
+170	  OLSR_PRINTF(5, "RIB: init routing tree\n");
+171
+172	  /* the routing tree */
+173	  avl_init(&routingtree, avl_comp_prefix_default);
+174	  routingtree_version = 0;
+175
+176	  /*
+177	   * Get some cookies for memory stats and memory recycling.
+178	   */
+179	  rt_mem_cookie = olsr_alloc_cookie("rt_entry", OLSR_COOKIE_TYPE_MEMORY);
+180	  olsr_cookie_set_memory_size(rt_mem_cookie, sizeof(struct rt_entry));
+181
+182	  rtp_mem_cookie = olsr_alloc_cookie("rt_path", OLSR_COOKIE_TYPE_MEMORY);
+183	  olsr_cookie_set_memory_size(rtp_mem_cookie, sizeof(struct rt_path));
+184	}
 ```
 
 ____
@@ -721,30 +719,30 @@ ____
 _____
 
 ```c
-static struct rt_entry *
-olsr_alloc_rt_entry(struct olsr_ip_prefix *prefix)
-{
-  struct rt_entry *rt = olsr_cookie_malloc(rt_mem_cookie);
-  if (!rt) {
-    return NULL;
-  }
-
-  memset(rt, 0, sizeof(*rt));
-
-  /* Mark this entry as fresh (see process_routes.c:512) */
-  rt->rt_nexthop.iif_index = -1;
-
-  /* set key and backpointer prior to tree insertion */
-  rt->rt_dst = *prefix;
-
-  rt->rt_tree_node.key = &rt->rt_dst;
-  avl_insert(&routingtree, &rt->rt_tree_node, AVL_DUP_NO);
-
-  /* init the originator subtree */
-  avl_init(&rt->rt_path_tree, avl_comp_default);
-
-  return rt;
-}
+231	static struct rt_entry *
+232	olsr_alloc_rt_entry(struct olsr_ip_prefix *prefix)
+233	{
+234	  struct rt_entry *rt = olsr_cookie_malloc(rt_mem_cookie);
+235	  if (!rt) {
+236		return NULL;
+237	  }
+238
+239	  memset(rt, 0, sizeof(*rt));
+240
+241	  /* Mark this entry as fresh (see process_routes.c:512) */
+242	  rt->rt_nexthop.iif_index = -1;
+243
+244	  /* set key and backpointer prior to tree insertion */
+245	  rt->rt_dst = *prefix;
+246
+247	  rt->rt_tree_node.key = &rt->rt_dst;
+248	  avl_insert(&routingtree, &rt->rt_tree_node, AVL_DUP_NO);
+249
+250	  /* init the originator subtree */
+251	  avl_init(&rt->rt_path_tree, avl_comp_default);
+252
+253	  return rt;
+254	}
 ```
 
 ____
@@ -760,59 +758,58 @@ ____
 ____
 
 ```c
-void
-olsr_insert_rt_path(struct rt_path *rtp, struct tc_entry *tc, struct link_entry *link)
-{
-  struct rt_entry *rt;
-  struct avl_node *node;
-
-  /*
-   * no unreachable routes please.
-   */
-  if (tc->path_cost == ROUTE_COST_BROKEN) {
-    return;
-  }
-
-  /*
-   * No bogus prefix lengths.
-   */
-  if (rtp->rtp_dst.prefix_len > olsr_cnf->maxplen) {
-    return;
-  }
-
-  /*
-   * first check if there is a route_entry for the prefix.
-   */
-  node = avl_find(&routingtree, &rtp->rtp_dst);
-
-  if (!node) {
-
-    /* no route entry yet */
-    rt = olsr_alloc_rt_entry(&rtp->rtp_dst);
-
-    if (!rt) {
-      return;
-    }
-
-  } else {
-    rt = rt_tree2rt(node);
-  }
-
-  /* Now insert the rt_path to the owning rt_entry tree */
-  rtp->rtp_originator = tc->addr;
-
-  /* set key and backpointer prior to tree insertion */
-  rtp->rtp_tree_node.key = &rtp->rtp_originator;
-
-  /* insert to the route entry originator tree */
-  avl_insert(&rt->rt_path_tree, &rtp->rtp_tree_node, AVL_DUP_NO);
-
-  /* backlink to the owning route entry */
-  rtp->rtp_rt = rt;
-
-  /* update the version field and relevant parameters */
-  olsr_update_rt_path(rtp, tc, link);
-}
+292	void
+293	olsr_insert_rt_path(struct rt_path *rtp, struct tc_entry *tc, struct link_entry *link)
+294	{
+295	  struct rt_entry *rt;
+296	  struct avl_node *node;
+297
+298	  /*
+299	   * no unreachable routes please.
+300	   */
+301	  if (tc->path_cost == ROUTE_COST_BROKEN) {
+302		return;
+303	  }
+304
+305	  /*
+306	   * No bogus prefix lengths.
+307	   */
+308	  if (rtp->rtp_dst.prefix_len > olsr_cnf->maxplen) {
+309		return;
+310	  }
+311
+312	  /*
+313	   * first check if there is a route_entry for the prefix.
+314	   */
+315	  node = avl_find(&routingtree, &rtp->rtp_dst);
+316
+317	  if (!node) {
+318
+319		/* no route entry yet */
+320		rt = olsr_alloc_rt_entry(&rtp->rtp_dst);
+321
+322		if (!rt) {
+323		  return;
+324		}
+325
+326	  } else {
+327		rt = rt_tree2rt(node);
+328	  }
+329
+330	  /* Now insert the rt_path to the owning rt_entry tree */
+331	  rtp->rtp_originator = tc->addr;
+332
+333	  /* set key and backpointer prior to tree insertion */
+334	  rtp->rtp_tree_node.key = &rtp->rtp_originator;
+335
+336	  /* insert to the route entry originator tree */
+337	  avl_insert(&rt->rt_path_tree, &rtp->rtp_tree_node, AVL_DUP_NO);
+338
+339	  /* backlink to the owning route entry */
+340	  rtp->rtp_rt = rt;
+341
+342	  /* update the version field and relevant parameters */
+343	  olsr_update_rt_path(rtp, tc, link);
 ```
 
 ____
@@ -828,22 +825,22 @@ ____
 ____
 
 ```c
-void
-olsr_update_rt_path(struct rt_path *rtp, struct tc_entry *tc, struct link_entry *link)
-{
-
-  rtp->rtp_version = routingtree_version;
-
-  /* gateway */
-  rtp->rtp_nexthop.gateway = link->neighbor_iface_addr;
-
-  /* interface */
-  rtp->rtp_nexthop.iif_index = link->inter->if_index;
-
-  /* metric/etx */
-  rtp->rtp_metric.hops = tc->hops;
-  rtp->rtp_metric.cost = tc->path_cost;
-}
+211	void
+212	olsr_update_rt_path(struct rt_path *rtp, struct tc_entry *tc, struct link_entry *link)
+213	{
+214
+215	  rtp->rtp_version = routingtree_version;
+216
+217	  /* gateway */
+218	  rtp->rtp_nexthop.gateway = link->neighbor_iface_addr;
+219
+220	  /* interface */
+221	  rtp->rtp_nexthop.iif_index = link->inter->if_index;
+222
+223	  /* metric/etx */
+224	  rtp->rtp_metric.hops = tc->hops;
+225	  rtp->rtp_metric.cost = tc->path_cost;
+226	}
 ```
 
 该函数的主要功能是更新路由路径的网关，接口和路由跳数和路径的版本信息。
@@ -851,30 +848,30 @@ olsr_update_rt_path(struct rt_path *rtp, struct tc_entry *tc, struct link_entry 
 ____
 
 ```c
-void
-olsr_delete_rt_path(struct rt_path *rtp)
-{
-
-  /* remove from the originator tree */
-  if (rtp->rtp_rt) {
-    avl_delete(&rtp->rtp_rt->rt_path_tree, &rtp->rtp_tree_node);
-    rtp->rtp_rt = NULL;
-  }
-
-  /* remove from the tc prefix tree */
-  if (rtp->rtp_tc) {
-    avl_delete(&rtp->rtp_tc->prefix_tree, &rtp->rtp_prefix_tree_node);
-    olsr_unlock_tc_entry(rtp->rtp_tc);
-    rtp->rtp_tc = NULL;
-  }
-
-  /* no current inet gw if the rt_path is removed */
-  if (current_inetgw == rtp) {
-    current_inetgw = NULL;
-  }
-
-  olsr_cookie_free(rtp_mem_cookie, rtp);
-}
+349	void
+350	olsr_delete_rt_path(struct rt_path *rtp)
+351	{
+352
+353	  /* remove from the originator tree */
+354	  if (rtp->rtp_rt) {
+355		avl_delete(&rtp->rtp_rt->rt_path_tree, &rtp->rtp_tree_node);
+356		rtp->rtp_rt = NULL;
+357	  }
+358
+359	  /* remove from the tc prefix tree */
+360	  if (rtp->rtp_tc) {
+361		avl_delete(&rtp->rtp_tc->prefix_tree, &rtp->rtp_prefix_tree_node);
+362		olsr_unlock_tc_entry(rtp->rtp_tc);
+363		rtp->rtp_tc = NULL;
+364	  }
+365
+366	  /* no current inet gw if the rt_path is removed */
+367	  if (current_inetgw == rtp) {
+368		current_inetgw = NULL;
+369	  }
+370
+371	  olsr_cookie_free(rtp_mem_cookie, rtp);
+372	}
 ```
 
 ____
@@ -890,39 +887,39 @@ ____
 ____
 
 ```c
-static bool
-olsr_cmp_rtp(const struct rt_path *rtp1, const struct rt_path *rtp2, const struct rt_path *inetgw)
-{
-  olsr_linkcost etx1 = rtp1->rtp_metric.cost;
-  olsr_linkcost etx2 = rtp2->rtp_metric.cost;
-  if (inetgw == rtp1)
-    etx1 *= olsr_cnf->lq_nat_thresh;
-  if (inetgw == rtp2)
-    etx2 *= olsr_cnf->lq_nat_thresh;
-
-  /* etx comes first */
-  if (etx1 < etx2) {
-    return true;
-  }
-  if (etx1 > etx2) {
-    return false;
-  }
-
-  /* hopcount is next tie breaker */
-  if (rtp1->rtp_metric.hops < rtp2->rtp_metric.hops) {
-    return true;
-  }
-  if (rtp1->rtp_metric.hops > rtp2->rtp_metric.hops) {
-    return false;
-  }
-
-  /* originator (which is guaranteed to be unique) is final tie breaker */
-  if (memcmp(&rtp1->rtp_originator, &rtp2->rtp_originator, olsr_cnf->ipsize) < 0) {
-    return true;
-  }
-
-  return false;
-}
+435	static bool
+436	olsr_cmp_rtp(const struct rt_path *rtp1, const struct rt_path *rtp2, const struct rt_path *inetgw)
+437	{
+438	  olsr_linkcost etx1 = rtp1->rtp_metric.cost;
+439	  olsr_linkcost etx2 = rtp2->rtp_metric.cost;
+440	  if (inetgw == rtp1)
+441		etx1 *= olsr_cnf->lq_nat_thresh;
+442	  if (inetgw == rtp2)
+443		etx2 *= olsr_cnf->lq_nat_thresh;
+444
+445	  /* etx comes first */
+446	  if (etx1 < etx2) {
+447		return true;
+448	  }
+449	  if (etx1 > etx2) {
+450		return false;
+451	  }
+452
+453	  /* hopcount is next tie breaker */
+454	  if (rtp1->rtp_metric.hops < rtp2->rtp_metric.hops) {
+455		return true;
+456	  }
+457	  if (rtp1->rtp_metric.hops > rtp2->rtp_metric.hops) {
+458		return false;
+459	  }
+460
+461	  /* originator (which is guaranteed to be unique) is final tie breaker */
+462	  if (memcmp(&rtp1->rtp_originator, &rtp2->rtp_originator, olsr_cnf->ipsize) < 0) {
+463		return true;
+464	  }
+465
+466	  return false;
+467	}
 ```
 
 ____
@@ -938,29 +935,29 @@ ____
 ____
 
 ```c
-void
-olsr_rt_best(struct rt_entry *rt)
-{
-  /* grab the first entry */
-  struct avl_node *node = avl_walk_first(&rt->rt_path_tree);
-
-  assert(node != 0);            /* should not happen */
-
-  rt->rt_best = rtp_tree2rtp(node);
-
-  /* walk all remaining originator entries */
-  while ((node = avl_walk_next(node))) {
-    struct rt_path *rtp = rtp_tree2rtp(node);
-
-    if (olsr_cmp_rtp(rtp, rt->rt_best, current_inetgw)) {
-      rt->rt_best = rtp;
-    }
-  }
-
-  if (0 == rt->rt_dst.prefix_len) {
-    current_inetgw = rt->rt_best;
-  }
-}
+485	void
+486	olsr_rt_best(struct rt_entry *rt)
+487	{
+488	  /* grab the first entry */
+489	  struct avl_node *node = avl_walk_first(&rt->rt_path_tree);
+490
+491	  assert(node != 0);            /* should not happen */
+492
+493	  rt->rt_best = rtp_tree2rtp(node);
+494
+495	  /* walk all remaining originator entries */
+496	  while ((node = avl_walk_next(node))) {
+497		struct rt_path *rtp = rtp_tree2rtp(node);
+498
+499		if (olsr_cmp_rtp(rtp, rt->rt_best, current_inetgw)) {
+500		  rt->rt_best = rtp;
+501		}
+502	  }
+503
+504	  if (0 == rt->rt_dst.prefix_len) {
+505		current_inetgw = rt->rt_best;
+506	  }
+507	}
 ```
 
 ____
@@ -974,61 +971,60 @@ ____
 ____
 
 ```c
-struct rt_path *
-olsr_insert_routing_table(union olsr_ip_addr *dst, int plen, union olsr_ip_addr *originator, int origin)
-{
-#ifdef DEBUG
-  struct ipaddr_str dstbuf, origbuf;
-#endif
-  struct tc_entry *tc;
-  struct rt_path *rtp;
-  struct avl_node *node;
-  struct olsr_ip_prefix prefix;
-
-  /*
-   * No bogus prefix lengths.
-   */
-  if (plen > olsr_cnf->maxplen) {
-    return NULL;
-  }
-
-  /*
-   * For all routes we use the tc_entry as an hookup point.
-   * If the tc_entry is disconnected, i.e. has no edges it will not
-   * be explored during SPF run.
-   */
-  tc = olsr_locate_tc_entry(originator);
-
-  /*
-   * first check if there is a rt_path for the prefix.
-   */
-  prefix.prefix = *dst;
-  prefix.prefix_len = plen;
-
-  node = avl_find(&tc->prefix_tree, &prefix);
-
-  if (!node) {
-
-    /* no rt_path for this prefix yet */
-    rtp = olsr_alloc_rt_path(tc, &prefix, origin);
-
-    if (!rtp) {
-      return NULL;
-    }
-#ifdef DEBUG
-    OLSR_PRINTF(1, "RIB: add prefix %s/%u from %s\n", olsr_ip_to_string(&dstbuf, dst), plen,
-                olsr_ip_to_string(&origbuf, originator));
-#endif
-
-    /* overload the hna change bit for flagging a prefix change */
-    changes_hna = true;
-
-  } else {
-    rtp = rtp_prefix_tree2rtp(node);
-  }
-
-  return rtp;
-}
+523	struct rt_path *
+524	olsr_insert_routing_table(union olsr_ip_addr *dst, int plen, union olsr_ip_addr *originator, int origin)
+525	{
+526	#ifdef DEBUG
+527	  struct ipaddr_str dstbuf, origbuf;
+528	#endif
+529	  struct tc_entry *tc;
+530	  struct rt_path *rtp;
+531	  struct avl_node *node;
+532	  struct olsr_ip_prefix prefix;
+533
+534	  /*
+535	   * No bogus prefix lengths.
+536	   */
+537	  if (plen > olsr_cnf->maxplen) {
+538		return NULL;
+539	  }
+540
+541	  /*
+542	   * For all routes we use the tc_entry as an hookup point.
+543	   * If the tc_entry is disconnected, i.e. has no edges it will not
+544	   * be explored during SPF run.
+545	   */
+546	  tc = olsr_locate_tc_entry(originator);
+547
+548	  /*
+549	   * first check if there is a rt_path for the prefix.
+550	   */
+551	  prefix.prefix = *dst;
+552	  prefix.prefix_len = plen;
+553
+554	  node = avl_find(&tc->prefix_tree, &prefix);
+555
+556	  if (!node) {
+557
+558		/* no rt_path for this prefix yet */
+559		rtp = olsr_alloc_rt_path(tc, &prefix, origin);
+560
+561		if (!rtp) {
+562		  return NULL;
+563		}
+564	#ifdef DEBUG
+565		OLSR_PRINTF(1, "RIB: add prefix %s/%u from %s\n", olsr_ip_to_string(&dstbuf, dst), plen,
+566					olsr_ip_to_string(&origbuf, originator));
+567	#endif
+568
+569		/* overload the hna change bit for flagging a prefix change */
+570		changes_hna = true;
+571
+572	  } else {
+573		rtp = rtp_prefix_tree2rtp(node);
+574	  }
+575
+576	  return rtp;
 ```
 
 ____
