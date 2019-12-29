@@ -340,11 +340,1044 @@
 
 ### 2.1 文件介绍
 
+OLSR协议中共有123个源文件，以下对部分重要文件进行罗列。
+
+![image-20191229224612199](C:\Users\yuxi\AppData\Roaming\Typora\typora-user-images\image-20191229224612199.png)
+
 ### 2.2 数据结构
 
-### 2.3 邻居检测
+#### 2.2.1 OLSR头部(省略IP和UDP报头)
+
+____
+
+```c
+55	struct olsr_common {
+56	  uint8_t type;
+57	  olsr_reltime vtime;
+58	  uint16_t size;
+59	  union olsr_ip_addr orig;
+60	  uint8_t ttl;
+61	  uint8_t hops;
+62	  uint16_t seqno;
+63	};
+```
+
+____
+
+53-63：olsr_common是OLSR协议的基本数据包首部。
+
+对于与协议相关的所有数据，OLSR使用统一的数据包格式进行通信，这样做的目的是在不破坏向后兼容性的情况下促进协议的可扩展性。这也提供了一种简单的方法，将不同“类型”的信息汇集到一个单一的传输中。这些数据包嵌入在UDP数据报中，使用UDP通信，IANA将端口698分配给OLSR协议专用。每个分组封装一个或多个消息，这些消息共享一个通用的报头格式，使节点能够接受和重传未知类型的消息。OLSR协议分组的基本格式如图所示：
+
+![image-20191229225147064](C:\Users\yuxi\AppData\Roaming\Typora\typora-user-images\image-20191229225147064.png)
+
+**a.**数据包首部
+
+**Packet** **Length：**数据包的长度（单位：字节）
+
+**Packet** **Sequence** **Number：**数据包序列号，每当传送一个新的OLSR分组时，序列号加一。为每个接口维护一个单独的分组序列号，以便对通过接口发送的分组进行顺序枚举。
+
+**b.**消息首部
+
+**Message** **Type** ：消息类型，在0-127范围内的消息类型保留给本协议中的所有消息和以后可能的扩展。
+
+**Vtime** ：该字段表明接收节点后多长时间必须将消息中包含的信息视为有效，除非接收到对信息的最新更新。有效时间由它的尾数a（Vtime字段的四个最高位）和它的指数b（Vtime字段的四个最低位）表示。有效期=C*（1a/16）*2^b[秒]，C为一系数。
+
+**Message Size**：消息的大小，以字节为单位计算。并从“消息类型”字段的开头到下一个“消息类型”字段的开头（如果没有下一个“消息类型”，则到该消息的结尾为止)。
+
+**Originator Address**：此字段包含最初生成此消息的节点的主地址，重传过程中地址不发生改变。此字段不应与IP标头中的源地址混淆，后者每次都更改为重传该消息的中间接口的地址。
+
+**Time To Live**：此字段包含将发送消息的最大跳数。消息每次重传前TTL减1，当TTL为0或1时，则不再重传。通过此方式可以限制一个消息的洪泛范围。
+
+**Hop Count**：一个消息获得的跳数的数量。每次重传消息前，跳数加一。初始值为0。
+
+**Message Sequence Number**：由源节点产生的一个消息的唯一标识，用来保证一个消息不会被任何节点重传一次以上。
+
+#### 2.2.2 HELLO分组
+
+OLSR协议采用一种通用的机制来填充本地链路信息库和邻居信息库，即周期性地交换HELLO消息。
+
+____
+
+```c
+106	/* serialized LQ_HELLO */
+107	struct lq_hello_info_header {
+108	  uint8_t link_code;
+109	  uint8_t reserved;
+110	  uint16_t size;
+111	};
+112
+113	struct lq_hello_header {
+114	  uint16_t reserved;
+115	  uint8_t htime;
+116	  uint8_t will;
+117	};
+```
+
+____
+
+106-117：结构体lq_hello_info_header和lq_hello_header共同组成HELLO消息数据包的首部。格式如下图：
+
+![image-20191229225535823](C:\Users\yuxi\AppData\Roaming\Typora\typora-user-images\image-20191229225535823.png) 这一部分是将OLSR基本数据包首部的"Message Type"设为HELLO_MESSAGE，TTL设为1，Vtime设为NEIGHB_HOLD_TIME。 
+
+**Reserved**:保留字段,必须设置设为“0000000000000
+
+**Htime**:指定节点在特定接口上的HELLO发射间隔，即下一个HELLO传输前的时间。Hello发射间隔用尾数(Htime的四个最高位)和指数(Htime的四个最低位)来表示。即HELLO发射间隔=C*（1+a/16）*2^b[秒]。其中a是Htime字段的四个最高位表示的整数，b是Htime字段的四个最低位表示的整数。 
+
+**willingness**:此字段指定节点为其他节点承载和转发流量的意愿。
+
+Willingness有三种取值：
+
+1. **WILL_NEVER**：永远不会选择意愿为WILL_NEVER的节点作为MPR。
+
+2. **WILL_ALWAYS**：具有WILL_ALWAYS意愿的节点将始终被选择为MPR。
+
+3. **WILL_DEFAULT**：默认情况下，节点意愿为WILL_DEFAULT。
+
+**Link Code**:此字段指定发送方的接口和邻居列表中邻居接口之间的链路类型。它还指定有关邻居状态的信息。链路类型不为节点所知的邻居信息被静默丢弃:
+
+链路类型有以下三种： 
+
+1. **ASYM_LINK**:发送HELLO分组的节点与邻居列表中的节点间的链路是非对称的。表示可以收到邻居节点的消息,但不确定邻居节点能否收到本节点的消息。
+
+2. **SYM_LINK**:发送HELLO分组的节点与列表中的邻节点间的链路是对称的。表示链路已经被验证为双向的。
+
+3. **MPR_LINK**:表示列表中的节点已被发送该HELLO分组的节点选择为MPR。
+
+**Link Message Size**：本链路消息的大小，以字节为单位，从Link Code字段开始到下一个Link Code字段之前（如果没有下一个Link Code，则到该消息尾部）。
+
+**Neighbor Interface Address**：邻居节点的接口地址。每一种链路类型之后都紧跟一组邻居节点接口地址，表明该节点与这组邻居节点中的每一个节点链路类型都相同，都为前面给出的链路类型。
+
+____
+
+```c
+49	struct hello_neighbor {
+50	  uint8_t status;
+51	  uint8_t link;
+52	  union olsr_ip_addr main_address;
+53	  union olsr_ip_addr address;
+54	  struct hello_neighbor *next;
+55	  olsr_linkcost cost;
+56	  uint32_t linkquality[0];
+57	};
+58
+59	struct hello_message {
+60	  olsr_reltime vtime;
+61	  olsr_reltime htime;
+62	  union olsr_ip_addr source_addr;
+63	  uint16_t packet_seq_number;
+64	  uint8_t hop_count;
+65	  uint8_t ttl;
+66	  uint8_t willingness;
+67	  struct hello_neighbor *neighbors;
+68
+69	};
+```
+
+____
+
+49-57：结构体hello_neighbor是HELLO消息邻居节点集。Status，记录邻居的状态；link指明链路类型；main_address是邻居的主地址；address是邻居的其他地址；cost，链路代价；linkquality，链路质量。
+
+59-69：hello_message是消息数据包。vtime，消息有效时间；htime，HELLO消息的发射间隔；source_addr，发送消息的原地址；packet_seq_number，数据包的序列号；hop_count，消息已经经历的跳数；ttl，数据包生命周期；willingness，节点进行转发的意愿；neighbors，下一个传递的邻居节点。
+
+#### 2.2.3 TC分组
+
+该部分是将OLSR首部中“MessageType”设置为TC_Message。TTL设置为255(最大值)，以便将消息传播到网络中Vtime相应地设置为Top_hold_time的值。
+
+![image-20191229230132208](C:\Users\yuxi\AppData\Roaming\Typora\typora-user-images\image-20191229230132208.png)
+
+**ANSN**：序列号与公布的邻居集相关。每当节点检测到其邻居集中的更改时，它都会递增这个序列号。当节点接收到TC消息时，它可以根据该消息来判定所接收到的信息是否比现有消息更新。
+
+**Advertised Neighbor Main Address**：此字段包含邻居节点（此处的邻居节点仅为该节点的MPR Selector集中的节点）的主地址。
+
+**Reserved**：此字段是保留的，必须设置为“0000000000000000”。
+
+____
+
+```c
+77	struct tc_message {
+78	  olsr_reltime vtime;
+79	  union olsr_ip_addr source_addr;
+80	  union olsr_ip_addr originator;
+81	  uint16_t packet_seq_number;
+82	  uint8_t hop_count;
+83	  uint8_t ttl;
+84	  uint16_t ansn;
+85	  struct tc_mpr_addr *multipoint_relay_selector_address;
+86	};
+```
+
+____
+
+77-86：tc_message是TC消息数据包格式。OLSR协议利用TC拓扑表记录接收到的TC消息内容。TC拓扑表的介绍见“节点存储的表项”的“TC拓扑表”。
+
+#### 2.2.4 节点存储表项
+
+1. 接口关联集
+
+   网络中的每一个目的地节点存储了接口关联多元组。
+
+   | I_iface_addr | I_main_addr | I_time |
+   | ------------ | ----------- | ------ |
+
+   **i_iface_addr**是节点的接口地址；
+
+   **i_main_addr**是该节点的主地址；
+
+   **i_time**指定此元组过期的时间，以及必须删除的时间。
+
+2. 本地链路信息表
+
+   | L_local_iface_addr | L_neighbor_iface_addr | L_SYM_time | L_ASYM_time | L_time |
+   | ------------------ | --------------------- | ---------- | ----------- | ------ |
+
+​	  **L_local_iface_addr**是本地节点(即链路的一个端点)的接口地址；
+
+​	  **L_neighbor_iface_addr**是相邻节点的接口地址；
+
+​	  **L_SYM_time**是链路被视为对称的时间；
+
+​	  **L_ASYM_time**是被认为听到邻居接口的时间；
+
+ 	 **L_Time**指定了此记录过期的时间，并且必须被删除。当L_SYM_TIME和L_ASYM_TIME过期时，该链接被视为丢失。
+
+3.  一跳邻居表
+
+   | N_neighbot_main | N_status | N_willingness |
+   | --------------- | -------- | ------------- |
+
+ 	 **N_neighbor_main_addr**：邻居的主地址；
+
+  	**N_status**：指定节点是NOT_SYM还是SYM；
+
+  	**N_willingness**：指定节点的携带意愿，取值为0到7之间的整数。
+
+4. 二跳邻居表
+
+   | N_neighbor_main_addr | N_2hop_addr | N_time |
+   | -------------------- | ----------- | ------ |
+
+  	**N_neighbor_main_addr**是邻居的主地址；
+
+  	**N_2hop_addr**是具有与N_neighbor_main_addr对称链接的2跳邻居的主地址，也就是说节点通过邻居节点N_neighbor_main_addr到达其二跳邻居节点N_2hop_addr；
+
+  	**N_time**指定元组过期和必须删除的时间。
+
+5. MPR表
+
+      一个节点维护着其被选为MPR的邻居节点的集合，这些被选为MPR的邻居节点的主地址存放在MPR集中。
+
+6. MPR selector表
+
+   | MS_main_addr | MS_time |
+   | ------------ | ------- |
+
+   **MS_main_addr**是节点的主地址，该节点选择本节点为MPR；
+
+   **MS_time**指定元组过期的时间和必须删除的时间。
+
+7. TC拓扑表
+
+   网络中的每个节点维护有关网络的拓扑信息。此信息从TC消息中获取，并用于路由表计算。
+
+   | T_dest_addr | T_last_addr | T_seq | T_time |
+   | ----------- | ----------- | ----- | ------ |
+
+   **T_dest_addr**目的地节点的主地址，它可以从地址为T_last_addr的节点经过一跳到达；
+
+   **T_last_addr**是T_dest_addr的MPR；
+
+   **T_seq**是一个序列号；
+
+   **T_time**指定此元组过期的时间，以及必须删除的时间。
+
+8. 路由表
+
+   | R_dest_addr | R_next_addr | R_dist | R_iface_addr |
+   | ----------- | ----------- | ------ | ------------ |
+
+   **R_dest_addr**目的地节点地址
+
+   **R_next_addr**下一跳节点地址
+
+   **R_dist**本节点到目的节点的距离
+
+   **R_iface_addr**该节点转发路由信息的接口
+
+### 2.3 链路感知和邻居检测
+
+链路感知的机制是HELLO消息的周期性交换。节点必须在每个接口上执行链路感知，以便检测接口和邻居接口之间的链路。因此，对于给定的接口，HELLO消息将包含该接口上的链路列表，以及整个邻居的列表。
+
+#### 2.3.1 HELLO分组生成
+
+原则上，HELLO消息服务于三个独立的任务：链路感知，邻居检测和MPR选择。
+
+------
+
+```c
+66	void
+67	generate_hello(void *p)
+68	{
+69	  struct hello_message hellopacket;
+70	  struct interface *ifn = (struct interface *)p;
+71
+72	  olsr_build_hello_packet(&hellopacket, ifn);
+73
+74	  if (queue_hello(&hellopacket, ifn))
+75		net_output(ifn);
+76
+77	  olsr_free_hello_packet(&hellopacket);
+78
+79	}
+```
+
+------
+
+66-79：generate_hello()函数用来产生hello消息包。调用olsr_build_hello_packet()函数为指定的接口生成要发送的HELLO数据包。如果创建成功，则通过net_output()将该HELLO数据包通过指定的接口发送出去。最后释放该HELLO消息。
+
+____
+
+```c
+88 	int
+89 	olsr_build_hello_packet(struct hello_message *message, struct interface *outif)
+90 	{
+91 	  struct hello_neighbor *message_neighbor, *tmp_neigh;
+92 	  struct link_entry *links;
+93 	  struct neighbor_entry *neighbor;
+94 
+95 	#ifdef DEBUG
+96 	  OLSR_PRINTF(3, "\tBuilding HELLO on interface \"%s\"\n", outif->int_name ? outif->int_name : "<null>");
+97 	#endif
+98 
+99 	  message->neighbors = NULL;
+100	  message->packet_seq_number = 0;
+101
+102	  //message->mpr_seq_number=neighbortable.neighbor_mpr_seq;
+103
+104	  /* Set willingness */
+105
+106	  message->willingness = olsr_cnf->willingness;
+107	#ifdef DEBUG
+108	  OLSR_PRINTF(3, "Willingness: %d\n", olsr_cnf->willingness);
+109	#endif
+110
+111	  /* Set TTL */
+112
+113	  message->ttl = 1;
+114	  message->source_addr = olsr_cnf->main_addr;
+115
+116	#ifdef DEBUG
+117	  OLSR_PRINTF(5, "On link:\n");
+118	#endif
+119
+120	  /* Walk all links of this interface */
+121	  OLSR_FOR_ALL_LINK_ENTRIES(links) {
+122	#ifdef DEBUG
+123		struct ipaddr_str buf;
+124	#endif
+125		int lnk = lookup_link_status(links);
+126		/* Update the status */
+127
+128		/* Check if this link tuple is registered on the outgoing interface */
+129		if (!ipequal(&links->local_iface_addr, &outif->ip_addr)) {
+130		  continue;
+131		}
+132
+133		message_neighbor = olsr_malloc_hello_neighbor("Build HELLO");
+134
+135		/* Find the link status */
+136		message_neighbor->link = lnk;
+137
+138		/*
+139		 * Calculate neighbor status
+140		 */
+141		/*
+142		 * 2.1  If the main address, corresponding to
+143		 *      L_neighbor_iface_addr, is included in the MPR set:
+144		 *
+145		 *            Neighbor Type = MPR_NEIGH
+146		 */
+147		if (links->neighbor->is_mpr) {
+148		  message_neighbor->status = MPR_NEIGH;
+149		}
+150		/*
+151		 *  2.2  Otherwise, if the main address, corresponding to
+152		 *       L_neighbor_iface_addr, is included in the neighbor set:
+153		 */
+154
+155		/* NOTE:
+156		 * It is garanteed to be included when come this far
+157		 * due to the extentions made in the link sensing
+158		 * regarding main addresses.
+159		 */
+160		else {
+161
+162		  /*
+163		   *   2.2.1
+164		   *        if N_status == SYM
+165		   *
+166		   *             Neighbor Type = SYM_NEIGH
+167		   */
+168		  if (links->neighbor->status == SYM) {
+169			message_neighbor->status = SYM_NEIGH;
+170		  }
+171
+172		  /*
+173		   *   2.2.2
+174		   *        Otherwise, if N_status == NOT_SYM
+175		   *             Neighbor Type = NOT_NEIGH
+176		   */
+177		  else if (links->neighbor->status == NOT_SYM) {
+178			message_neighbor->status = NOT_NEIGH;
+179		  }
+180		}
+181
+182		/* Set the remote interface address */
+183		message_neighbor->address = links->neighbor_iface_addr;
+184
+185		/* Set the main address */
+186		message_neighbor->main_address = links->neighbor->neighbor_main_addr;
+187	#ifdef DEBUG
+188		OLSR_PRINTF(5, "Added: %s -  status %d\n", olsr_ip_to_string(&buf, &message_neighbor->address), message_neighbor->status);
+189	#endif
+190		message_neighbor->next = message->neighbors;
+191		message->neighbors = message_neighbor;
+192
+193	  }
+194	  OLSR_FOR_ALL_LINK_ENTRIES_END(links);
+195
+196	  /* Add the links */
+197
+198	#ifdef DEBUG
+199	  OLSR_PRINTF(5, "Not on link:\n");
+200	#endif
+201
+202	  /* Add the rest of the neighbors if running on multiple interfaces */
+203
+204	  if (ifnet != NULL && ifnet->int_next != NULL)
+205		OLSR_FOR_ALL_NBR_ENTRIES(neighbor) {
+206
+207	#ifdef DEBUG
+208		struct ipaddr_str buf;
+209	#endif
+210		/* Check that the neighbor is not added yet */
+211		tmp_neigh = message->neighbors;
+212		//printf("Checking that the neighbor is not yet added\n");
+213		while (tmp_neigh) {
+214		  if (ipequal(&tmp_neigh->main_address, &neighbor->neighbor_main_addr)) {
+215			//printf("Not adding duplicate neighbor %s\n", olsr_ip_to_string(&neighbor->neighbor_main_addr));
+216			break;
+217		  }
+218		  tmp_neigh = tmp_neigh->next;
+219		}
+220
+221		if (tmp_neigh) {
+222		  continue;
+223		}
+224
+225		message_neighbor = olsr_malloc_hello_neighbor("Build HELLO 2");
+226
+227		message_neighbor->link = UNSPEC_LINK;
+228
+229		/*
+230		 * Calculate neighbor status
+231		 */
+232		/*
+233		 * 2.1  If the main address, corresponding to
+234		 *      L_neighbor_iface_addr, is included in the MPR set:
+235		 *
+236		 *            Neighbor Type = MPR_NEIGH
+237		 */
+238		if (neighbor->is_mpr) {
+239		  message_neighbor->status = MPR_NEIGH;
+240		}
+241		/*
+242		 *  2.2  Otherwise, if the main address, corresponding to
+243		 *       L_neighbor_iface_addr, is included in the neighbor set:
+244		 */
+245
+246		/* NOTE:
+247		 * It is garanteed to be included when come this far
+248		 * due to the extentions made in the link sensing
+249		 * regarding main addresses.
+250		 */
+251		else {
+252
+253		  /*
+254		   *   2.2.1
+255		   *        if N_status == SYM
+256		   *
+257		   *             Neighbor Type = SYM_NEIGH
+258		   */
+259		  if (neighbor->status == SYM) {
+260			message_neighbor->status = SYM_NEIGH;
+261		  }
+262
+263		  /*
+264		   *   2.2.2
+265		   *        Otherwise, if N_status == NOT_SYM
+266		   *             Neighbor Type = NOT_NEIGH
+267		   */
+268		  else if (neighbor->status == NOT_SYM) {
+269			message_neighbor->status = NOT_NEIGH;
+270		  }
+271		}
+272
+273		message_neighbor->address = neighbor->neighbor_main_addr;
+274		message_neighbor->main_address = neighbor->neighbor_main_addr;
+275	#ifdef DEBUG
+276		OLSR_PRINTF(5, "Added: %s -  status  %d\n", olsr_ip_to_string(&buf, &message_neighbor->address), message_neighbor->status);
+277	#endif
+278		message_neighbor->next = message->neighbors;
+279		message->neighbors = message_neighbor;
+280
+281		}
+282	  OLSR_FOR_ALL_NBR_ENTRIES_END(neighbor);
+283
+284	  return 0;
+285	}
+```
+
+106和113：设置willingness和ttl。HELLO消息只能在一跳范围内传播，所以ttl值设为1.
+
+120-180：遍历该接口的所有链路得到链路状态，用以计算邻居的状态。如果邻居的主地址位于该节点的MPR集合，则将邻居的状态更新为MPR_NEIGH；如果邻居的主地址位于该节点的邻居列表（即不为MPR），则判断之间的链路状态是否对称并更新邻居的状态域。
+
+182-186：设置邻居节点的接口地址以及主地址。
+
+____
+
+```c
+58	struct link_entry {
+59	  union olsr_ip_addr local_iface_addr;
+60	  union olsr_ip_addr neighbor_iface_addr;
+61	  const struct interface *inter;
+62	  char *if_name;
+63	  struct timer_entry *link_timer;
+64	  struct timer_entry *link_sym_timer;
+65	  uint32_t ASYM_time;
+66	  olsr_reltime vtime;
+67	  struct neighbor_entry *neighbor;
+68	  uint8_t prev_status;
+69
+70	  /*
+71	   * Hysteresis
+72	   */
+73	  float L_link_quality;
+74	  int L_link_pending;
+75	  uint32_t L_LOST_LINK_time;
+76	  struct timer_entry *link_hello_timer; /* When we should receive a new HELLO */
+77	  olsr_reltime last_htime;
+78	  bool olsr_seqno_valid;
+79	  uint16_t olsr_seqno;
+80
+81	  /*
+82	   * packet loss
+83	   */
+84	  olsr_reltime loss_helloint;
+85	  struct timer_entry *link_loss_timer;
+86
+87	  /* user defined multiplies for link quality, multiplied with 65536 */
+88	  uint32_t loss_link_multiplier;
+89
+90	  /* cost of this link */
+91	  olsr_linkcost linkcost;
+92
+93	  struct list_node link_list;          /* double linked list of all link entries */
+94	  uint32_t linkquality[0];
+```
+
+____
+
+58-62：local_iface_addr存储了节点接口的IP地址，neighbor_iface_addr存储邻居节点的接口IP地址。
+
+63-68：各种时间的存储结构。link_timer定时器，link_sys_timer定时器。Vtime表示接受该消息之后多少时间之内视其为有效。Neighbor以链表的形式存储邻居节点信息，pre_status记录上一个节点的状态。
+
+____
+
+```c
+58	struct neighbor_entry {
+59	  union olsr_ip_addr neighbor_main_addr;
+60	  uint8_t status;
+61	  uint8_t willingness;
+62	  bool is_mpr;
+63	  bool was_mpr;                        /* Used to detect changes in MPR */
+64	  bool skip;
+65	  int neighbor_2_nocov;
+66	  int linkcount;
+67	  struct neighbor_2_list_entry neighbor_2_list;
+68	  struct neighbor_entry *next;
+69	  struct neighbor_entry *prev;
+70	};
+```
+
+_____
+
+58-69：结构体neighbor_entry用来存储邻居节点的信息。分别存储了邻居的主地址、状态、转发意愿、覆盖两跳邻居的数量、节点连接的链路数量。其中还存储两个布尔类型的值用来判断该节点是否是MPR以及该MPR是否发生过改变。最后包含了指向两跳邻居列表的指针。
+
+____
+
+```c
+49	struct neighbor_2_list_entry {
+50	  struct neighbor_entry *nbr2_nbr;     /* backpointer to owning nbr entry */
+51	  struct neighbor_2_entry *neighbor_2;
+52	  struct timer_entry *nbr2_list_timer;
+53	  struct neighbor_2_list_entry *next;
+54	  struct neighbor_2_list_entry *prev;
+55	};
+```
+
+____
+
+49-54：结构体neighbor_2_list_entry用来存储两跳节点列表中的信息。均采用指针的方式记录节点信息及结点的两跳邻居节点的信息以及列表的有效时间等。
+
+#### 2.3.2 节点操作
+
+____
+
+```c
+119	struct link_entry *
+120	lookup_link_entry(const union olsr_ip_addr *remote, const union olsr_ip_addr *remote_main, const struct interface *local)
+121	{
+122	  struct link_entry *link;
+123
+124	  OLSR_FOR_ALL_LINK_ENTRIES(link) {
+125		if (ipequal(remote, &link->neighbor_iface_addr)
+126			&& (link->if_name ? !strcmp(link->if_name, local->int_name) : ipequal(&local->ip_addr, &link->local_iface_addr))) {
+127		  /* check the remote-main address only if there is one given */
+128		  if (NULL != remote_main && !ipequal(remote_main, &link->neighbor->neighbor_main_addr)) {
+129			/* Neighbor has changed it's main_addr, update */
+130			struct ipaddr_str oldbuf, newbuf;
+131			OLSR_PRINTF(1, "Neighbor changed main_ip, updating %s -> %s\n",
+132						olsr_ip_to_string(&oldbuf, &link->neighbor->neighbor_main_addr), olsr_ip_to_string(&newbuf, remote_main));
+133			link->neighbor->neighbor_main_addr = *remote_main;
+134		  }
+135		  return link;
+136		}
+137	  }
+138	  OLSR_FOR_ALL_LINK_ENTRIES_END(link);
+139
+140	  return NULL;
+```
+
+____
+
+160-168：该函数的功能是获取链路的状态，状态基于链路条目中的不同超时，根据不同的定时器值将返回不同的链路状态信息，如link_sys_timer对应链路状态为对称链路。
+
+____
+
+```c
+179	static int
+180	get_neighbor_status(const union olsr_ip_addr *address)
+181	{
+182	  const union olsr_ip_addr *main_addr;
+183	  struct interface *ifs;
+184
+185	  /* Find main address */
+186	  if (!(main_addr = mid_lookup_main_addr(address)))
+187		main_addr = address;
+188
+189	  /* Loop trough local interfaces to check all possebilities */
+190	  for (ifs = ifnet; ifs != NULL; ifs = ifs->int_next) {
+191		struct mid_address *aliases;
+192		struct link_entry *lnk = lookup_link_entry(main_addr, NULL, ifs);
+193
+194		if (lnk != NULL) {
+195		  if (lookup_link_status(lnk) == SYM_LINK)
+196			return SYM_LINK;
+197		}
+198
+199		/* Get aliases */
+200		for (aliases = mid_lookup_aliases(main_addr); aliases != NULL; aliases = aliases->next_alias) {
+201
+202		  lnk = lookup_link_entry(&aliases->alias, NULL, ifs);
+203		  if (lnk && (lookup_link_status(lnk) == SYM_LINK)) {
+204			return SYM_LINK;
+205		  }
+206		}
+207	  }
+208
+209	  return 0;
+210	}
+211
+```
+
+____
+
+182-197：通过查找main_addr找到节点，然后通过look_link_status找到节点链路状态，并判断是否对称。
+
+200-206：查找主地址并找出节点其他端口的IP，判断该节点其他端口的链路状态。并判断该IP所在的链路状态是否对称，并返回对称链路的信息。
+
+#### 2.3.3 操作邻居表
+
+____
+
+```c
+void
+olsr_init_neighbor_table(void)
+{
+  int i;
+
+  for (i = 0; i < HASHSIZE; i++) {
+    neighbortable[i].next = &neighbortable[i];
+    neighbortable[i].prev = &neighbortable[i];
+  }
+}
+```
+
+____
+
+59-63：初始化邻居表。将每一个邻居表neighbortable[i]初始化为指向自身的仅有一个节点的链表。
+
+____
+
+```c
+139	struct neighbor_2_list_entry *
+140	olsr_lookup_my_neighbors(const struct neighbor_entry *neighbor, const union olsr_ip_addr *neighbor_main_address)
+141	{
+142	  struct neighbor_2_list_entry *entry;
+143
+144	  for (entry = neighbor->neighbor_2_list.next; entry != &neighbor->neighbor_2_list; entry = entry->next) {
+145
+146		if (ipequal(&entry->neighbor_2->neighbor_2_addr, neighbor_main_address))
+147		  return entry;
+148
+149	  }
+150	  return NULL;
+151	}
+```
+
+____
+
+142-150：该函数的功能是检查两跳邻居是否可以通过给定的邻居访问。遍历邻居节点的两跳邻居节点列表。如果找到列表中存在IP地址与给定的地址相匹配的两跳邻居节点，则返回该两跳邻居节点列表结构体。
+
+____
+
+```c
+260	struct neighbor_entry *
+261	olsr_lookup_neighbor_table(const union olsr_ip_addr *dst)
+262	{
+263	  /*
+264	   *Find main address of node
+265	   */
+266	  union olsr_ip_addr *tmp_ip = mid_lookup_main_addr(dst);
+267	  if (tmp_ip != NULL)
+268		dst = tmp_ip;
+269	  return olsr_lookup_neighbor_table_alias(dst);
+270	}
+```
+
+____
+
+271-274：该函数的功能是基于给定的地址在邻居表中查找邻居项。
+
+____
+
+```c
+299	int
+300	update_neighbor_status(struct neighbor_entry *entry, int lnk)
+301	{
+302	  /*
+303	   * Update neighbor entry
+304	   */
+305
+306	  if (lnk == SYM_LINK) {
+307		/* N_status is set to SYM */
+308		if (entry->status == NOT_SYM) {
+309		  struct neighbor_2_entry *two_hop_neighbor;
+310
+311		  /* Delete posible 2 hop entry on this neighbor */
+312		  if ((two_hop_neighbor = olsr_lookup_two_hop_neighbor_table(&entry->neighbor_main_addr)) != NULL) {
+313			olsr_delete_two_hop_neighbor_table(two_hop_neighbor);
+314		  }
+315
+316		  changes_neighborhood = true;
+317		  changes_topology = true;
+318		  if (olsr_cnf->tc_redundancy > 1)
+319			signal_link_changes(true);
+320		}
+321		entry->status = SYM;
+322	  } else {
+323		if (entry->status == SYM) {
+324		  changes_neighborhood = true;
+325		  changes_topology = true;
+326		  if (olsr_cnf->tc_redundancy > 1)
+327			signal_link_changes(true);
+328		}
+329		/* else N_status is set to NOT_SYM */
+330		entry->status = NOT_SYM;
+331		/* remove neighbor from routing list */
+332	  }
+333
+334	  return entry->status;
+335	}
+```
+
+_____
+
+该函数的功能为更新邻居的状态。
+
+313-328：如果链路状态更新为SYM_LINK时，原来非对称的链路通知网络重新选举MPR和更新路由表并删除通过该邻居节点到达的两跳邻居节点。
+
+329-339：如果链路状态原先为SYS_LINK，通知网络重新进行MPR的选取和路由表的更新。
+
+____
+
+```c
+215	struct neighbor_entry *
+216	olsr_insert_neighbor_table(const union olsr_ip_addr *main_addr)
+217	{
+218	  uint32_t hash;
+219	  struct neighbor_entry *new_neigh;
+220
+221	  hash = olsr_ip_hashing(main_addr);
+222
+223	  /* Check if entry exists */
+224
+225	  for (new_neigh = neighbortable[hash].next; new_neigh != &neighbortable[hash]; new_neigh = new_neigh->next) {
+226		if (ipequal(&new_neigh->neighbor_main_addr, main_addr))
+227		  return new_neigh;
+228	  }
+229
+230	  //printf("inserting neighbor\n");
+231
+232	  new_neigh = olsr_malloc(sizeof(struct neighbor_entry), "New neighbor entry");
+233
+234	  /* Set address, willingness and status */
+235	  new_neigh->neighbor_main_addr = *main_addr;
+236	  new_neigh->willingness = WILL_NEVER;
+237	  new_neigh->status = NOT_SYM;
+238
+239	  new_neigh->neighbor_2_list.next = &new_neigh->neighbor_2_list;
+240	  new_neigh->neighbor_2_list.prev = &new_neigh->neighbor_2_list;
+241
+242	  new_neigh->linkcount = 0;
+243	  new_neigh->is_mpr = false;
+244	  new_neigh->was_mpr = false;
+245
+246	  /* Queue */
+247	  QUEUE_ELEM(neighbortable[hash], new_neigh);
+248
+249	  return new_neigh;
+250	}
+```
+
+____
+
+该函数的功能是在邻居节点表中插入一条邻居节点信息。如果已存在该信息返回插入成功则返回1。
+
+230-233：检查表项是否存在。
+
+237-249：添加邻居节点信息，将地址、意愿、状态等值初始化。
+
+____
+
+```c
+160	int
+161	olsr_delete_neighbor_table(const union olsr_ip_addr *neighbor_addr)
+162	{
+163	  struct neighbor_2_list_entry *two_hop_list, *two_hop_to_delete;
+164	  uint32_t hash;
+165	  struct neighbor_entry *entry;
+166
+167	  //printf("inserting neighbor\n");
+168
+169	  hash = olsr_ip_hashing(neighbor_addr);
+170
+171	  entry = neighbortable[hash].next;
+172
+173	  /*
+174	   * Find neighbor entry
+175	   */
+176	  while (entry != &neighbortable[hash]) {
+177		if (ipequal(&entry->neighbor_main_addr, neighbor_addr))
+178		  break;
+179
+180		entry = entry->next;
+181	  }
+182
+183	  if (entry == &neighbortable[hash])
+184		return 0;
+185
+186	  two_hop_list = entry->neighbor_2_list.next;
+187
+188	  while (two_hop_list != &entry->neighbor_2_list) {
+189		two_hop_to_delete = two_hop_list;
+190		two_hop_list = two_hop_list->next;
+191
+192		two_hop_to_delete->neighbor_2->neighbor_2_pointer--;
+193		olsr_delete_neighbor_pointer(two_hop_to_delete->neighbor_2, entry);
+194
+195		olsr_del_nbr2_list(two_hop_to_delete);
+196	  }
+197
+198	  /* Dequeue */
+199	  DEQUEUE_ELEM(entry);
+200
+201	  free(entry);
+202
+203	  changes_neighborhood = true;
+204	  return 1;
+205
+206	}
+```
+
+____
+
+165-211：该函数的功能是删除邻居表项，删除邻居表项的同时会删除掉该节点存储的两跳邻居列表。
 
 ### 2.4 MPR
+
+OLSR采用MPR机制对路由信息进行选择性的洪泛。MPR作为OLSR协议的核心部分，算法描述已经在前面描述过了，此处不再赘述。
+
+#### 2.4.1 MPR生成
+
+____
+
+```c
+357	static uint16_t
+358	add_will_always_nodes(void)
+359	{
+360	  struct neighbor_entry *a_neighbor;
+361	  uint16_t count = 0;
+362
+363	#if 0
+364	  printf("\nAdding WILL ALWAYS nodes....\n");
+365	#endif
+366
+367	  OLSR_FOR_ALL_NBR_ENTRIES(a_neighbor) {
+368		struct ipaddr_str buf;
+369		if ((a_neighbor->status == NOT_SYM) || (a_neighbor->willingness != WILL_ALWAYS)) {
+370		  continue;
+371		}
+372		olsr_chosen_mpr(a_neighbor, &count);
+373
+374		OLSR_PRINTF(3, "Adding WILL_ALWAYS: %s\n", olsr_ip_to_string(&buf, &a_neighbor->neighbor_main_addr));
+375
+376	  }
+377	  OLSR_FOR_ALL_NBR_ENTRIES_END(a_neighbor);
+378
+379	#if 0
+380	  OLSR_PRINTF(1, "Count: %d\n", count);
+381	#endif
+382	  return count;
+383	}
+```
+
+____
+
+该函数的作用是添加willingness为WILLALWAYS的邻居节点到MPR集合中。
+
+368-383：对于非对称以及转发意愿为WILLNEVER的邻居节点不进行处理，其余节点添加到MPR集合中，并返回添加的节点的数量。
+
+____
+
+```c
+236	static void
+237	olsr_clear_mprs(void)
+238	{
+239	  struct neighbor_entry *a_neighbor;
+240	  struct neighbor_2_list_entry *two_hop_list;
+241
+242	  OLSR_FOR_ALL_NBR_ENTRIES(a_neighbor) {
+243
+244		/* Clear MPR selection. */
+245		if (a_neighbor->is_mpr) {
+246		  a_neighbor->was_mpr = true;
+247		  a_neighbor->is_mpr = false;
+248		}
+249
+250		/* Clear two hop neighbors coverage count/ */
+251		for (two_hop_list = a_neighbor->neighbor_2_list.next; two_hop_list != &a_neighbor->neighbor_2_list;
+252			 two_hop_list = two_hop_list->next) {
+253		  two_hop_list->neighbor_2->mpr_covered_count = 0;
+254		}
+255
+256	  }
+257	  OLSR_FOR_ALL_NBR_ENTRIES_END(a_neighbor);
+```
+
+____
+
+该函数的功能是清除被选为MPR的节点。
+
+246-249：如果节点目前是MPR节点，那就将is_mpr项设为false，was_mpr设为true，表明该节点过去是MPR节点，现在不是了。
+
+252-255：当删除一个MPR节点时，该节点存储的两跳邻居列表也应该清除。所以将邻居节点覆盖的两跳邻居节点的数量置0。
+
+____
+
+```c
+140	static int
+141	olsr_chosen_mpr(struct neighbor_entry *one_hop_neighbor, uint16_t * two_hop_covered_count)
+142	{
+143	  struct neighbor_list_entry *the_one_hop_list;
+144	  struct neighbor_2_list_entry *second_hop_entries;
+145	  struct neighbor_entry *dup_neighbor;
+146	  uint16_t count;
+147	  struct ipaddr_str buf;
+148	  count = *two_hop_covered_count;
+149
+150	  OLSR_PRINTF(1, "Setting %s as MPR\n", olsr_ip_to_string(&buf, &one_hop_neighbor->neighbor_main_addr));
+151
+152	  //printf("PRE COUNT: %d\n\n", count);
+153
+154	  one_hop_neighbor->is_mpr = true;      //NBS_MPR;
+155
+156	  for (second_hop_entries = one_hop_neighbor->neighbor_2_list.next; second_hop_entries != &one_hop_neighbor->neighbor_2_list;
+157		   second_hop_entries = second_hop_entries->next) {
+158		dup_neighbor = olsr_lookup_neighbor_table(&second_hop_entries->neighbor_2->neighbor_2_addr);
+159
+160		if ((dup_neighbor != NULL) && (dup_neighbor->status == SYM)) {
+161		  //OLSR_PRINTF(7, "(2)Skipping 2h neighbor %s - already 1hop\n", olsr_ip_to_string(&buf, &second_hop_entries->neighbor_2->neighbor_2_addr));
+162		  continue;
+163		}
+164		//      if(!second_hop_entries->neighbor_2->neighbor_2_state)
+165		//if(second_hop_entries->neighbor_2->mpr_covered_count < olsr_cnf->mpr_coverage)
+166		//{
+167		/*
+168		   Now the neighbor is covered by this mpr
+169		 */
+170		second_hop_entries->neighbor_2->mpr_covered_count++;
+171		the_one_hop_list = second_hop_entries->neighbor_2->neighbor_2_nblist.next;
+172
+173		//OLSR_PRINTF(1, "[%s](%x) has coverage %d\n", olsr_ip_to_string(&buf, &second_hop_entries->neighbor_2->neighbor_2_addr), second_hop_entries->neighbor_2, second_hop_entries->neighbor_2->mpr_covered_count);
+174
+175		if (second_hop_entries->neighbor_2->mpr_covered_count >= olsr_cnf->mpr_coverage)
+176		  count++;
+177
+178		while (the_one_hop_list != &second_hop_entries->neighbor_2->neighbor_2_nblist) {
+179
+180		  if ((the_one_hop_list->neighbor->status == SYM)) {
+181			if (second_hop_entries->neighbor_2->mpr_covered_count >= olsr_cnf->mpr_coverage) {
+182			  the_one_hop_list->neighbor->neighbor_2_nocov--;
+183			}
+184		  }
+185		  the_one_hop_list = the_one_hop_list->next;
+186		}
+187
+188		//}
+189	  }
+190
+191	  //printf("POST COUNT %d\n\n", count);
+192
+193	  *two_hop_covered_count = count;
+194	  return count;
+195
+196	}
+```
+
+____
+
+该函数的作用是用来处理已经选定的MPR节点，函数的返回值为一跳邻居节点中MPR的数量。
+
+159-165：对second_hop_entries进行遍历
+
+173：该邻居节点被MPR覆盖，将两跳邻居节点被MPR覆盖的数量+1。
+
+181-188：如果两跳节点被MPR覆盖的数量大于全局变量mpr_coverage，将count递减。
+
+_____
+
+
 
 ### 2.5 拓扑发现
 
