@@ -1377,7 +1377,144 @@ ____
 
 _____
 
+```c
+265	static int
+266	olsr_check_mpr_changes(void)
+267	{
+268	  struct neighbor_entry *a_neighbor;
+269	  int retval;
+270
+271	  retval = 0;
+272
+273	  OLSR_FOR_ALL_NBR_ENTRIES(a_neighbor) {
+274
+275		if (a_neighbor->was_mpr) {
+276		  a_neighbor->was_mpr = false;
+277
+278		  if (!a_neighbor->is_mpr) {
+279			retval = 1;
+280		  }
+281		}
+282	  }
+283	  OLSR_FOR_ALL_NBR_ENTRIES_END(a_neighbor);
+284
+285	  return retval;
+286	}
+```
 
+____
+
+该函数的作用是遍历所有的MPR节点判断其状态是否发生变化，若发生变化返回值为1，否则为0。
+
+282-292：对于结点如果其was_mpr值为true，表明它过去是MPR，is_mpr值为false，表示现在不是MPR，所以它的状态发生了变化，将retval置为1
+
+#### 2.4.2 MPR选择
+
+MPR的选择原则是MPR为对称邻居节点，通过MPR可以到达所有的两跳邻居节点，并且MPR的数量要尽可能少。接下来介绍有关两跳邻居节点的函数以及如何周到能够覆盖最多两跳节点的MPR。
+
+____
+
+```c
+86 	static struct neighbor_2_list_entry *
+87 	olsr_find_2_hop_neighbors_with_1_link(int willingness)
+88 	{
+89 
+90 	  uint8_t idx;
+91 	  struct neighbor_2_list_entry *two_hop_list_tmp = NULL;
+92 	  struct neighbor_2_list_entry *two_hop_list = NULL;
+93 	  struct neighbor_entry *dup_neighbor;
+94 	  struct neighbor_2_entry *two_hop_neighbor = NULL;
+95 
+96 	  for (idx = 0; idx < HASHSIZE; idx++) {
+97 
+98 		for (two_hop_neighbor = two_hop_neighbortable[idx].next; two_hop_neighbor != &two_hop_neighbortable[idx];
+99 			 two_hop_neighbor = two_hop_neighbor->next) {
+100
+101		  //two_hop_neighbor->neighbor_2_state=0;
+102		  //two_hop_neighbor->mpr_covered_count = 0;
+103
+104		  dup_neighbor = olsr_lookup_neighbor_table(&two_hop_neighbor->neighbor_2_addr);
+105
+106		  if ((dup_neighbor != NULL) && (dup_neighbor->status != NOT_SYM)) {
+107
+108			//OLSR_PRINTF(1, "(1)Skipping 2h neighbor %s - already 1hop\n", olsr_ip_to_string(&buf, &two_hop_neighbor->neighbor_2_addr));
+109
+110			continue;
+111		  }
+112
+113		  if (two_hop_neighbor->neighbor_2_pointer == 1) {
+114			if ((two_hop_neighbor->neighbor_2_nblist.next->neighbor->willingness == willingness)
+115				&& (two_hop_neighbor->neighbor_2_nblist.next->neighbor->status == SYM)) {
+116			  two_hop_list_tmp = olsr_malloc(sizeof(struct neighbor_2_list_entry), "MPR two hop list");
+117
+118			  //OLSR_PRINTF(1, "ONE LINK ADDING %s\n", olsr_ip_to_string(&buf, &two_hop_neighbor->neighbor_2_addr));
+119
+120			  /* Only queue one way here */
+121			  two_hop_list_tmp->neighbor_2 = two_hop_neighbor;
+122
+123			  two_hop_list_tmp->next = two_hop_list;
+124
+125			  two_hop_list = two_hop_list_tmp;
+126			}
+127		  }
+128
+129		}
+130
+131	  }
+132
+133	  return (two_hop_list_tmp);
+134	}
+135
+```
+
+____
+
+该函数的作用是查找一条连接两跳邻居节点的链表。
+
+92-95：定义了两个两跳邻居节点链表（two_hop_temp，two_hop_list），前者是函数的返回值。
+
+Dup_neighor记录邻居节点集合中已经存在的节点，two_hop_neighbor记录一个两跳邻居节点的局部变量。
+
+97-112：遍历两跳邻居列表two_hop_neighbortable。
+
+114-117：寻找邻居表中已经存在的邻居地址neighbor_2_addr，忽略与本节点不对称的邻居节点。
+
+122-126：如果该两跳邻居节点不在两跳邻居链表中，且只有一个邻居节点，则将该两跳邻居节点加入链表。
+
+____
+
+```c
+206	static struct neighbor_entry *
+207	olsr_find_maximum_covered(int willingness)
+208	{
+209	  uint16_t maximum;
+210	  struct neighbor_entry *a_neighbor;
+211	  struct neighbor_entry *mpr_candidate = NULL;
+212
+213	  maximum = 0;
+214
+215	  OLSR_FOR_ALL_NBR_ENTRIES(a_neighbor) {
+216
+217	#if 0
+218		printf("[%s] nocov: %d mpr: %d will: %d max: %d\n\n", olsr_ip_to_string(&buf, &a_neighbor->neighbor_main_addr),
+219			   a_neighbor->neighbor_2_nocov, a_neighbor->is_mpr, a_neighbor->willingness, maximum);
+220	#endif
+221
+222		if ((!a_neighbor->is_mpr) && (a_neighbor->willingness == willingness) && (maximum < a_neighbor->neighbor_2_nocov)) {
+223
+224		  maximum = a_neighbor->neighbor_2_nocov;
+225		  mpr_candidate = a_neighbor;
+226		}
+227	  }
+228	  OLSR_FOR_ALL_NBR_ENTRIES_END(a_neighbor);
+229
+230	  return mpr_candidate;
+231	}
+```
+
+该函数的作用是找到能够覆盖最多两跳节点的MPR。
+
+225-233：如果该一跳邻居节点不是MPR，而且该节点覆盖的两跳邻居节点的数量比maximum大，则更新maximum的值并将该一跳邻居节点作为候选MPR节点。
 
 ### 2.5 拓扑发现
 
