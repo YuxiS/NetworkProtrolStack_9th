@@ -1,80 +1,91 @@
 <center> <font size=10>OLSR协议分析</font>  </center>
-[TOC]
+
 
 # 1. 概述
 
 ## 1.1 协议概述
 
-<p style= "text-indent:2em">最佳链路状态路由协议（Optimized Link State Routing Protocol）是一个针对Ad-hoc网络需求的先应式的链路状态算法的优化协议。
-<p style= "text-indent:2em">Ad-hoc网络是一种多跳，无中心的，自组织的无线网络，其不依赖于固定的网络核心，每个节点都是移动的。该网络的主要特点是自组织性，节点对等，分布式控制，临时性，网络拓扑结构变化快，带宽链路有限等。</p>
-<p style="text-indent:2em">针对Ad-hoc网络的特点，该协议的核心主要是是MPR(Multipoint Relay)多点中继，每个节点选择选择一组其邻居节点作为MPR节点，然后只由这些MPR节点负责洪泛网络控制信息。MPR通过减少流量的传输次数，减少了网络中的信息量开销。</p>
-<p style="text-indent:2em">该协议中，MPR节点负责周期性的广播路由更新，每个节点根据其他节点的控制信息，计算自己的网络拓扑，得到网络节点间的最短路径。该协议使用Dijkstra最短路径算法选择路径。</p>
+最佳链路状态路由协议（Optimized Link State Routing Protocol）是一个针对Ad-hoc网络需求的先应式的链路状态算法的优化协议。
+
+Ad-hoc网络是一种多跳，无中心的，自组织的无线网络，其不依赖于固定的网络核心，每个节点都是移动的。该网络的主要特点是自组织性，节点对等，分布式控制，临时性，网络拓扑结构变化快，带宽链路有限等。
+
+针对Ad-hoc网络的特点，该协议的核心主要是是MPR(Multipoint Relay)多点中继，每个节点选择选择一组其邻居节点作为MPR节点，然后只由这些MPR节点负责洪泛网络控制信息。MPR通过减少流量的传输次数，减少了网络中的信息量开销。
+
+该协议中，MPR节点负责周期性的广播路由更新，每个节点根据其他节点的控制信息，计算自己的网络拓扑，得到网络节点间的最短路径。该协议使用Dijkstra最短路径算法选择路径
+
 
 ## 1.2 主要算法描述
 
 ### 1.2.1 部分元组结构
 
-**链接元组 ___(L_local_iface_addr, L_neighbor_iface_addr, L_SYM_time, L_ASYM_time, Ltime)___** 
+**链接元组 ___(L\_local\_iface\_addr, L\_neighbor\_iface\_addr, L\_SYM\_time, L_ASYM\_time, Ltime)___** 
 
-**邻居元组 ___(N_neighbor_main_addr, N_2hop_addr,N_time)___**
+**邻居元组 ___(N\_neighbor\_main\_addr, N\_2hop\_addr,N\_time)___**
 
-**MPR选择元组 ___(MS_main_addr, MS_time)___** 
+**MPR选择元组 ___(MS\_main\_addr, MS\_time)___** 
 
-**拓扑元组 ___{T_test_addr,T_lase_addr, T_seq, T_time}___**
+**拓扑元组 ___{T\_test\_addr,T\_lase\_addr, T\_seq, T\_time}___**
 
-**路由表项元组__{R_dest_addr, R_next_addr, R_dist, R_iface_addr}__**
+**路由表项元组__{R\_dest\_addr, R\_next\_addr, R\_dist, R\_iface\_addr}__**
 
 ### 1.2.2链路感知
 
-<p style="text-indent:2em">在Ad-hoc这种无线自组织网络，由于网络的动态性，有些连接可能是单向连接。OLSR规定只有双向对称的链路才能传播信息，每个节点要建立与其他节点的对称链路，必须进行链路检测。</p>
-<p style="text-indent:2em">节点链路感知是要通过互相发送HELLO分组来实现的，本地链路信息库存储本节点到邻居节点的链接信息。当收到一个HELLO分组时，一个节点应该更新其链路集，收到一个HELLO分组后，首先计算该分组的有效事件，来确认该分组是否有效，然后更新链路信息，更新链路信息的主要流程如下：</p
+在Ad-hoc这种无线自组织网络，由于网络的动态性，有些连接可能是单向连接。OLSR规定只有双向对称的链路才能传播信息，每个节点要建立与其他节点的对称链路，必须进行链路检测。
+
+节点链路感知是要通过互相发送HELLO分组来实现的，本地链路信息库存储本节点到邻居节点的链接信息。当收到一个HELLO分组时，一个节点应该更新其链路集，收到一个HELLO分组后，首先计算该分组的有效事件，来确认该分组是否有效，然后更新链路信息，更新链路信息的主要流程如下：
+
 * 收到一个HELLO分组，如果不存在如下一条链路记录元组：
 
-​		<code>L_neighbor_iface_addr == 该分组的Originator Address</code>
+
+​		<code>L\_neighbor\_iface\_addr == 该分组的Originator Address</code>
 
 必须加入在链接信息库中新加入：
 
-​		<code>  L_beighbor_iface_addr  = 该分组的Originator Address</code>>
+​		<code>  L\_beighbor\_iface\_addr  = 该分组的Originator Address</code>>
 
-​        <code>L_local_iface_addr          = 该分组的接口地址</code>
+​        <code>L\_local\_iface\_addr          = 该分组的接口地址</code>
 
-​		<code>L_SYM_time                     = Current time - 1</code>
+​		<code>L\_SYM\_time                     = Current time - 1</code>
 
-​		<code>L_time                               =current time + validity time</code>  
+​		<code>L\_time                               =current time + validity time</code>  
 
 * 如果该元组已经存在,则按照如下规则修改链路信息集：
 
-<code>L_ASYM_time = current time + validity time</code>
+<code>L\_ASYM\_time = current time + validity time</code>
 
 如果接口地址在HELLO分组链路信息列表中，则如下更新：
 
 		* 如果链接状态是LOST_LINK,则：
 
-​		<code>L_SYM_time = current time + validity time</code>
+​		<code>L\_SYM_time = current time + validity time</code>
 
  * 如果链接状态是SYM_LINK或者ASYM_LINK,则：
 
-​		<code>L_SYM_time = current time + validity time</code>
+​		<code>L\_SYM\_time = current time + validity time</code>
 
-​		<code>L_time = L_SYM_time+NEIGHB_HELLO_TIME</code>
+​		<code>L\_time = L\_SYM_time+NEIGHB\_HELLO\_TIME</code>
 
-<code> L_time = max(L_time, L_ASYM_time)</code>
+<code> L\_time = max(L\_time, L\_ASYM\_time)</code>
 
 ### 1.2.3 邻居检测
 
-<p style="text-indent:2em">邻居检测会通过改变邻居信息库来记录邻居信息，而且这种检测主要和节点与节点间的主地址相关。OLSR中的邻居检测机制是通过定期交换HELLO分组实现的。</p>
+邻居检测会通过改变邻居信息库来记录邻居信息，而且这种检测主要和节点与节点间的主地址相关。OLSR中的邻居检测机制是通过定期交换HELLO分组实现的。
+
 #### 1. 扩充邻居集
 
-<p style="text-indent:2em">节点基于链接元组集来维护邻居信息元组集，随着链接信息集的更新来更新这些信息。</p>
-<p style="text-indent:2em">链接集保存链路的链接信息，邻居集保存邻居信息，这两个集合之间有明确的关系，当一个节点是另一个节点的邻居节点时，这两个节点间至少应该有一条双向链接链路。</p>
-<p style="text-indext:2em">邻居和链接只间的正是对应关系如下:</p>
+节点基于链接元组集来维护邻居信息元组集，随着链接信息集的更新来更新这些信息。
+
+链接集保存链路的链接信息，邻居集保存邻居信息，这两个集合之间有明确的关系，当一个节点是另一个节点的邻居节点时，这两个节点间至少应该有一条双向链接链路。
+
+邻居和链接只间的正是对应关系如下:
+
 * 如果一个链接元组中的关联邻居元组存在，邻居元组为：
 
-  ​	<code>N_neighbor_main_addr ==L_neightbor_iface _addr的主地址</code> 
+  ​	<code>N\_neighbor\_main\_addr ==L\_neightbor\_iface \_addr的主地址</code> 
 
 * 如果邻居元组的关联链接元组都是链接元组，并且：
 
-  ​	<code>N_neighbor_main_addr == L_neighbot_iface _addr的主地址</code>	
+  ​	<code>N\_neighbor\_main\_addr == L\_neighbot\_iface\_addr的主地址</code>	
 
   则邻居集必须通过维护链接元组和关联邻居元组之间对应关系来填充，填充规则如下：
 
@@ -82,7 +93,7 @@
 
     每次出现一个链接时，必须创建关联的邻居元组，如果邻居元组不存在，则：
 
-    <code>N_neighbor_main_addr = Lneighbor_iface_addr 的主地址</code>
+    <code>N\_neighbor\_main\_addr = Lneighbor\_iface\_addr 的主地址</code>
 
   * 更新
 
@@ -90,11 +101,11 @@
 
     ​		如果邻居有任何关联元组代表一个对称链接，则：
 
-    ​		<code>N_status = SYM</code>
+    ​		<code>N\_status = SYM</code>
 
     ​		否则：
 
-    ​		<code>N_status = NOT_SYM</code>
+    ​		<code>N\_status = NOT\_SYM</code>
 
   * 删除
 
@@ -104,44 +115,52 @@
 
 * HELLO分组处理
 
-  <p style="text-indent:2em">一个HELLO分组的Original Address是该分组的发出者地址。同时，根据HELLO的willingness字段重新计算willingness。收到一个HELLO分组后，节点需要更新自己的链接集和邻居集。</p>
-* 如果发出者地址是邻居集中邻居元组中的N_neighbor_main_addr，则邻居元组应该更新：
+  一个HELLO分组的Original Address是该分组的发出者地址。同时，根据HELLO的willingness字段重新计算willingness。收到一个HELLO分组后，节点需要更新自己的链接集和邻居集。
+* 如果发出者地址是邻居集中邻居元组中的N\_neighbor\_main\_addr，则邻居元组应该更新：
   
-  ​	<code>N_willingness = HELLO分组中的willingness</code>
+  ​	<code>N\_willingness = HELLO分组中的willingness</code>
 
 #### 2. 扩充二跳邻居集
 
-<p style="text-indent:2em">二跳邻居集描述的是对称邻居的对称链接信息，其依然通过互相交互HELLO分组来维护。</p>
-<p style="text-indent:2em">从对称邻居接受到一个全新的HELLO分组后，一个节点应该更新其二跳邻居集。接受到一个HELLO分组，首先通过Vtime计算有效时，检测其是否有效。如果该分组的发出者地址是包含着链接集中链接元组中的L_neighbor_iface_addr的一个主地址，如果 <code>L_SYM_time >= current time</code> 则该分组未过期。</p>
-* 对于每一个在HELLO中分组中且邻居类型为SYM_NEIGH或MPR_NEIGH的地址：
+二跳邻居集描述的是对称邻居的对称链接信息，其依然通过互相交互HELLO分组来维护。
+
+从对称邻居接受到一个全新的HELLO分组后，一个节点应该更新其二跳邻居集。接受到一个HELLO分组，首先通过Vtime计算有效时，检测其是否有效。如果该分组的发出者地址是包含着链接集中链接元组中的L\_neighbor\_iface\_addr的一个主地址，如果 <code>L\_SYM\_time >= current time</code> 则该分组未过期。
+
+* 对于每一个在HELLO中分组中且邻居类型为SYM\_NEIGH或MPR\_NEIGH的地址：
 
    * 如果一个二跳邻居节点的主地址不等于接受节点的主地址，则丢弃该二跳邻居。
 
    * 否则，新创建一个二跳邻居元组：
 
-     <code>N_neighbor_main_addr = 发出者地址</code>
+     <code>N\_neighbor\_main\_addr = 发出者地址</code>
 
-     <code>N_2hop_addr = 二跳邻居的主地址</code>
+     <code>N\_2hop\_addr = 二跳邻居的主地址</code>
 
-     <code>N_time = current time+validity time</code>
+     <code>N\_time = current time+validity time</code>
 
-     这个新分组用于替换和其具有相同N_neighbor_main_addr 和N_2hop_addr值的元组。
+     这个新分组用于替换和其具有相同N\_neighbor\_main\_addr 和N\_2hop\_addr值的元组。
 
 * 对于每一个在HELLO中分组中且邻居类型为NOT_NEIGH的地址，所有的二跳邻居应该是：
 
-  ​	<code>N_neighbor_main_addr == 发出者地址 and</code> 
+  ​	<code>N\_neighbor\_main\_addr == 发出者地址 and</code> 
 
-  ​	<code>N_2hop_addr == 二跳邻居的主地址</code>
+  ​	<code>N\_2hop\_addr == 二跳邻居的主地址</code>
 
 ###  1.2.4 MPR
 
-<p style="text-indent:2em">MPR用于洪泛网络控制分组，主要是减少分组传输过程中的重传次数，因此，该机制是对传统洪泛机制的优化。</p>
-<p style="text-indent:2em">网络中的每个节点独立地从一跳对称邻居中选择自己的MPR集，和邻居节点中MPR的对称链路在HELLO分组中的链路类型为MPR_NEIGH。</p>
- <p style="text-indent:2em">每个节点的每个接口都计算自己的MPR集，所有接口的MPR集的并集为该节点的MPR集。</p>
-<p style="text-indent:2em">MPR集应满足以下两点要求：节点与MPR之间必须是一跳双向链路；节点能通过MPR集到达所有的严格两跳邻居节点。</p>
+MPR用于洪泛网络控制分组，主要是减少分组传输过程中的重传次数，因此，该机制是对传统洪泛机制的优化。
+
+网络中的每个节点独立地从一跳对称邻居中选择自己的MPR集，和邻居节点中MPR的对称链路在HELLO分组中的链路类型为MPR_NEIGH。
+
+ 每个节点的每个接口都计算自己的MPR集，所有接口的MPR集的并集为该节点的MPR集。
+
+MPR集应满足以下两点要求：节点与MPR之间必须是一跳双向链路；节点能通过MPR集到达所有的严格两跳邻居节点。
+
+
+
 #### 1. MPR计算
 
-* 从一个节点的子集开始，当N_willness等于WILL_ALWAYS该子集中成员属于一个MPR集。
+* 从一个节点的子集开始，当N\_willness等于WILL_ALWAYS该子集中成员属于一个MPR集。
 
 * 计算该子集中所有节点的一跳邻居集。
 
@@ -168,52 +187,61 @@
 
   1. 如果不存在具有以下内容MPR selector元组：
 
-     <code>MS_main_addr == 发出者地址</code>
+     <code>MS\_main\_addr == 发出者地址</code>
 
      则创建一个新元组：
 
-     <code>MS_main_addr = 发出者地址</code>
+     <code>MS\_main\_addr = 发出者地址</code>
 
   2. 如果元组：
 
-     <code>MS_main_addr == 发出者地址</code>
+     <code>MS\_main\_addr == 发出者地址</code>
 
      则修改MS_time字段:
 
-     <code>MS_time = current time + validity time</code>
+     <code>MS\_time = current time + validity time</code>
 
 #### 3. 邻居和二跳邻居变化
 
 ​	邻居节点的变化情况将在以下情况下被检测到:
 
-* 如果链接元组的L_SYM_Time字段到期。
+* 如果链接元组的L\_SYM\_Time字段到期。
 
-* 在链接集中插入一个新的链接元组，其中L_SYM_Time字段未过期，或者L_SYM_Time被修改避免过期。
+* 在链接集中插入一个新的链接元组，其中L\_SYM\_Time字段未过期，或者L\_SYM\_Time被修改避免过期。
 
 当邻居集或者二跳邻居集被检测到发生变化，则执行以下流程：
 
-* 如果有邻居丢失，则所有<code>N_neighbor_main_addr==Main Address</code>的二跳元组必须被删除。
-* 如果有邻居丢失，所有<code>MS_main_addr == Main Address</code>的MPR selector元组必须被删除。
+* 如果有邻居丢失，则所有<code>N\_neighbor\_main\_addr==Main Address</code>的二跳元组必须被删除。
+* 如果有邻居丢失，所有<code>MS\_main\_addr == Main Address</code>的MPR selector元组必须被删除。
 * 当有邻居或者二跳邻居改变，丢失，或者删除时，MPR集必须重新计算。
 * 当MPR集发生改变时，可能发出一个额外的HELLO分组。
 
 ### 1.2.5 拓扑发现
 
-<p style="text-indent:2em">前面的链路检测和邻居检测部分为每个节点提供了能够直接通信的邻居列表，并且合并了数据包的格式和通过MPR优化的前向路由洪泛算法。拓扑信息基于此在网络中得以传播。</p>
-<p style="text-indent:2em">网络的路由结构是通过广播链路来实现的。一个节点必须至少传播其本身和MPR selector集中的信息，让网络中有充分的信息构建路由表。</p>
+前面的链路检测和邻居检测部分为每个节点提供了能够直接通信的邻居列表，并且合并了数据包的格式和通过MPR优化的前向路由洪泛算法。拓扑信息基于此在网络中得以传播。
+
+网络的路由结构是通过广播链路来实现的。一个节点必须至少传播其本身和MPR selector集中的信息，让网络中有充分的信息构建路由表。
+
 #### 1. 广播邻居集
 
-<p style="text-indent:2em">一个节点发出TC分组声明链接集，称为广播链接集。该行为必须至少包含到其MPR selector集的所有链接信息。</p>
-<p style="text-indent:2em">与广播邻居集相关联的序列号(ANSN)也应该伴随发出。当链接从广播的邻居集中移除时，ANSN必须增加。当有链接加入邻居集时，ANSN也应该增加。</p>
+一个节点发出TC分组声明链接集，称为广播链接集。该行为必须至少包含到其MPR selector集的所有链接信息。
+
+与广播邻居集相关联的序列号(ANSN)也应该伴随发出。当链接从广播的邻居集中移除时，ANSN必须增加。当有链接加入邻居集时，ANSN也应该增加。
+
 #### 2. TC分组生成
 
-<p style="text-indent:2em">为了构建拓扑信息集，每一个被选为MPR的节点，必须广播TC分组。TC分组通过广播方式传播到网络中的每一个节点。MPR在拓扑信息的分散上有良好的扩展性。</p>
-<p style="text-indent:2em">地址是TC分组的一部分。所有TC分组的解析必须在一个确定的更新周期内完成。这些TC分组携带的信息将协助网络中所有节点完成路由表的计算。</p>
-<p style="text-indent:2em">当一个节点的可广播链接集为空时，其依然应该在之前发出TC分组的validity time时间内持续发送空的TC分组消息。以使之前发送的TC分组失效。然后其应该停止发送TC分组，直到有某个节点加入该节点的广播链接集。</p>
-<p style="text-indent:2em">一个节点能够传递附加的TC分组以增强对链路故障的反应性。当MPR selector集的变化被检测到，且该变化可能导致链路故障时，节点应该在短于TC_INTERVAL的时间内传递一个TC分组。</p>
+为了构建拓扑信息集，每一个被选为MPR的节点，必须广播TC分组。TC分组通过广播方式传播到网络中的每一个节点。MPR在拓扑信息的分散上有良好的扩展性。
+
+地址是TC分组的一部分。所有TC分组的解析必须在一个确定的更新周期内完成。这些TC分组携带的信息将协助网络中所有节点完成路由表的计算。
+
+当一个节点的可广播链接集为空时，其依然应该在之前发出TC分组的validity time时间内持续发送空的TC分组消息。以使之前发送的TC分组失效。然后其应该停止发送TC分组，直到有某个节点加入该节点的广播链接集。
+
+一个节点能够传递附加的TC分组以增强对链路故障的反应性。当MPR selector集的变化被检测到，且该变化可能导致链路故障时，节点应该在短于TC_INTERVAL的时间内传递一个TC分组。
+
 #### 3. TC分组转发
 
-<p style="text-indent:2em">TC分组必须由MPR节点广播转发到整个网络。</p>
+TC分组必须由MPR节点广播转发到整个网络。
+
 #### 4. TC分组处理
 
 * 当接受到一个TC分组后，必须先通过其头部的Vtime字段计算其有效时间然后，拓扑集根据以下规则更新：
@@ -222,17 +250,17 @@
   
 * 如果拓扑信息集中存在一些元组：
 
-  <code>T_last_addr == 发出者地址 AND</code>
+  <code>T\_last\_addr == 发出者地址 AND</code>
 
-  <code>T_seq > ANSN</code>
+  <code>T\_seq > ANSN</code>
 
   则不对该分组做任何进一步处理，并且丢弃该分组。
 
 * 如果拓扑集中所有的元组都是:
 
-  <code>T_last_addr == 发出者地址 AND</code>
+  <code>T\_last\_addr == 发出者地址 AND</code>
 
-  <code>T_seq < ANSN</code>
+  <code>T\_seq < ANSN</code>
 
   则必须从拓扑集中删除。
 
@@ -240,27 +268,28 @@
 
   * 如果在拓扑集中存在一些元组：
 
-    <code> T_test_addr == 广播邻居的主地址 AND</code>
+    <code> T\_test\_addr == 广播邻居的主地址 AND</code>
 
-    <code>T_last_addr == 发出者地址</code>
+    <code>T\_last\_addr == 发出者地址</code>
 
     则该元组的有效时间必须被设为：
 
-    <code>T_time = current time + validity time</code>
+    <code>T\_time = current time + validity time</code>
 
   * 否则，必须在拓扑集中记录一条新的原则记录:
 
-    <code>T_dest_addr = 被广播邻居主地址</code>
+    <code>T\_dest\_addr = 被广播邻居主地址</code>
 
-    <code>T_last_addr = 发出者地址</code>
+    <code>T\_last\_addr = 发出者地址</code>
 
-    <code>T_seq = ANSN</code>
+    <code>T\_seq = ANSN</code>
 
-    <code>T_time = current time + validity time</code>
+    <code>T\_time = current time + validity time</code>
 
 ### 1.2.6 路由表计算
 
-<p style="text-indent:2em">每个节点都拥有一个路由表，通过路由表节点能够让网络中其他节点发送信息.路由表是基于本地的链接信息集和拓扑集构建的，所以这两个集合一旦有任何一个发生变化，路由表都需要重新计算。</p>
+每个节点都拥有一个路由表，通过路由表节点能够让网络中其他节点发送信息.路由表是基于本地的链接信息集和拓扑集构建的，所以这两个集合一旦有任何一个发生变化，路由表都需要重新计算。
+
 * 当以下任何一个有变化时，都需要更新路由表:
   * 链路集
   * 邻居集
@@ -276,57 +305,57 @@
 
 * 新增加路由表项从以对称邻居作为目的节点开始。因此，对于邻居集中的每个邻居元组，都有:
 
-  <code>N_status = SYM</code>
+  <code>N\_status = SYM</code>
 
-  并且，对于邻居节点的每个关联链接元组，都有<code>L_time >= current time</code>,路由表中新加的表项为:
+  并且，对于邻居节点的每个关联链接元组，都有<code>L\_time >= current time</code>,路由表中新加的表项为:
 
-  <code>R_dest_addr = 关联链接元组的L_neighbor_iface_addr</code>
+  <code>R\_dest_addr = 关联链接元组的L_neighbor_iface_addr</code>
 
-  <code>R_next_addr = 关联链接元组的L_neighbor_iface_addr</code>
+  <code>R\_next\_addr = 关联链接元组的L\_neighbor\_iface\_addr</code>
 
-  <code> R_dist = 1</code>
+  <code> R\_dist = 1</code>
 
-  <code>R_iface_addr = 关联链接元组的L_local_iface_addr</code>
+  <code>R\_iface_addr = 关联链接元组的L\_local\_iface\_addr</code>
 
-  如果按照上述情况，没有R_dest_addr等于邻居节点的主地址，则必须添加新的路由表项:
+  如果按照上述情况，没有R\_dest\_addr等于邻居节点的主地址，则必须添加新的路由表项:
 
-  <code> R_dest_addr = 邻居的Main address</code>
+  <code> R\_dest\_addr = 邻居的Main address</code>
 
-  <code>R_next_addr = L_time>0的关联链接元组的L_neighbor_iface_addr</code>
+  <code>R\_next\_addr = L_time>0的关联链接元组的L\_neighbor\_iface\_addr</code>
 
-  <code>R_dist = 1</code>
+  <code>R\_dist = 1</code>
 
-  <code>R_iface_addr = 关联链接元组的L_local_iface</code>
+  <code>R\_iface\_addr = 关联链接元组的L\_local\_iface</code>
 
-* 对于严格二条邻居节点，如果二跳邻居集中至少存在一项记录中N_neighbor_main_addr对于一个willingness不为WILL_NEVER的节点，选择一个二跳邻居节点，并在路由表中添加新表项：
+* 对于严格二条邻居节点，如果二跳邻居集中至少存在一项记录中N\_neighbor\_main\_addr对于一个willingness不为WILL_NEVER的节点，选择一个二跳邻居节点，并在路由表中添加新表项：
 
-  <code>R_dest_addr = 二跳邻居的Main Address</code>
+  <code>R\_dest\_addr = 二跳邻居的Main Address</code>
 
-  <code>R_next_addr = 路由表项中R_dest_addr等于二跳邻居N_neighbor_main_addr的记录的R_next_addr</code>
+  <code>R\_next\_addr = 路由表项中R\_dest\_addr等于二跳邻居N\_neighbor\_main\_addr的记录的R\_next\_addr</code>
 
-  <code>R_dist = 2 </code>
+  <code>R\_dist = 2 </code>
 
-  <code>R_ifacce_addr = 路由表中R_dest_addr等于二跳元组中N_neighbor_main-addr的记录的R_iface_addr</code>
+  <code>R\_ifacce\_addr = 路由表中R\_dest\_addr等于二跳元组中N\_neighbor\_main-addr的记录的R\_iface\_addr</code>
 
 * 对于h+1跳的节点，按照Dijkstra算法加入路由表中
 
 * 对于多接口关联信息集中的每个实体，如果不存在一个路由表项：
 
-  <code>R_dest_addr == I_main_addr</code>
+  <code>R\_dest\_addr == I\_main\_addr</code>
 
   并且，也没有表项：
 
-  <code>R_dest_addr == I_iface_addr</code>
+  <code>R\_dest\_addr == I\_iface\_addr</code>
 
   则添加一个新表项：
 
-  <code>R_dext_addr = I_iface_addr</code>
+  <code>R\_dext\_addr = I\_iface\_addr</code>
 
-  <code>R_dext_addr = R_next_addr</code>
+  <code>R\_dext\_addr = R\_next\_addr</code>
 
-  <code>R_dist = R_dist</code>
+  <code>R\_dist = R\_dist</code>
 
-  <code> R_iface_addr = R_iface_addr</code>
+  <code> R\_iface\_addr = R\_iface\_addr</code>
 
 ## 1.3 OLSR的优点和局限性
 * OLSR协议是一种先应式路由协议，具有查找路由延时小的优点。
@@ -338,15 +367,15 @@
 
 # 2.代码分析
 
-### 2.1 文件介绍
+## 2.1 文件介绍
 
 OLSR协议中共有123个源文件，以下对部分重要文件进行罗列。
 
 ![image-20191229224612199](C:\Users\yuxi\AppData\Roaming\Typora\typora-user-images\image-20191229224612199.png)
 
-### 2.2 数据结构
+## 2.2 数据结构
 
-#### 2.2.1 OLSR头部(省略IP和UDP报头)
+### 2.2.1 OLSR头部(省略IP和UDP报头)
 
 ____
 
@@ -364,7 +393,7 @@ ____
 
 ____
 
-53-63：olsr_common是OLSR协议的基本数据包首部。
+53-63：olsr\_common是OLSR协议的基本数据包首部。
 
 对于与协议相关的所有数据，OLSR使用统一的数据包格式进行通信，这样做的目的是在不破坏向后兼容性的情况下促进协议的可扩展性。这也提供了一种简单的方法，将不同“类型”的信息汇集到一个单一的传输中。这些数据包嵌入在UDP数据报中，使用UDP通信，IANA将端口698分配给OLSR协议专用。每个分组封装一个或多个消息，这些消息共享一个通用的报头格式，使节点能够接受和重传未知类型的消息。OLSR协议分组的基本格式如图所示：
 
@@ -392,7 +421,7 @@ ____
 
 **Message Sequence Number**：由源节点产生的一个消息的唯一标识，用来保证一个消息不会被任何节点重传一次以上。
 
-#### 2.2.2 HELLO分组
+### 2.2.2 HELLO分组
 
 OLSR协议采用一种通用的机制来填充本地链路信息库和邻居信息库，即周期性地交换HELLO消息。
 
@@ -415,7 +444,7 @@ ____
 
 ____
 
-106-117：结构体lq_hello_info_header和lq_hello_header共同组成HELLO消息数据包的首部。格式如下图：
+106-117：结构体lq\_hello\_info\_header和lq\_hello\_header共同组成HELLO消息数据包的首部。格式如下图：
 
 ![image-20191229225535823](C:\Users\yuxi\AppData\Roaming\Typora\typora-user-images\image-20191229225535823.png) 这一部分是将OLSR基本数据包首部的"Message Type"设为HELLO_MESSAGE，TTL设为1，Vtime设为NEIGHB_HOLD_TIME。 
 
@@ -427,21 +456,21 @@ ____
 
 Willingness有三种取值：
 
-1. **WILL_NEVER**：永远不会选择意愿为WILL_NEVER的节点作为MPR。
+1. **WILL\_NEVER**：永远不会选择意愿为WILL_NEVER的节点作为MPR。
 
-2. **WILL_ALWAYS**：具有WILL_ALWAYS意愿的节点将始终被选择为MPR。
+2. **WILL\_ALWAYS**：具有WILL_ALWAYS意愿的节点将始终被选择为MPR。
 
-3. **WILL_DEFAULT**：默认情况下，节点意愿为WILL_DEFAULT。
+3. **WILL\_DEFAULT**：默认情况下，节点意愿为WILL_DEFAULT。
 
 **Link Code**:此字段指定发送方的接口和邻居列表中邻居接口之间的链路类型。它还指定有关邻居状态的信息。链路类型不为节点所知的邻居信息被静默丢弃:
 
 链路类型有以下三种： 
 
-1. **ASYM_LINK**:发送HELLO分组的节点与邻居列表中的节点间的链路是非对称的。表示可以收到邻居节点的消息,但不确定邻居节点能否收到本节点的消息。
+1. **ASYM\_LINK**:发送HELLO分组的节点与邻居列表中的节点间的链路是非对称的。表示可以收到邻居节点的消息,但不确定邻居节点能否收到本节点的消息。
 
-2. **SYM_LINK**:发送HELLO分组的节点与列表中的邻节点间的链路是对称的。表示链路已经被验证为双向的。
+2. **SYM\_LINK**:发送HELLO分组的节点与列表中的邻节点间的链路是对称的。表示链路已经被验证为双向的。
 
-3. **MPR_LINK**:表示列表中的节点已被发送该HELLO分组的节点选择为MPR。
+3. **MPR\_LINK**:表示列表中的节点已被发送该HELLO分组的节点选择为MPR。
 
 **Link Message Size**：本链路消息的大小，以字节为单位，从Link Code字段开始到下一个Link Code字段之前（如果没有下一个Link Code，则到该消息尾部）。
 
@@ -475,11 +504,11 @@ ____
 
 ____
 
-49-57：结构体hello_neighbor是HELLO消息邻居节点集。Status，记录邻居的状态；link指明链路类型；main_address是邻居的主地址；address是邻居的其他地址；cost，链路代价；linkquality，链路质量。
+49-57：结构体hello\_neighbor是HELLO消息邻居节点集。Status，记录邻居的状态；link指明链路类型；main_address是邻居的主地址；address是邻居的其他地址；cost，链路代价；linkquality，链路质量。
 
-59-69：hello_message是消息数据包。vtime，消息有效时间；htime，HELLO消息的发射间隔；source_addr，发送消息的原地址；packet_seq_number，数据包的序列号；hop_count，消息已经经历的跳数；ttl，数据包生命周期；willingness，节点进行转发的意愿；neighbors，下一个传递的邻居节点。
+59-69：hello\_message是消息数据包。vtime，消息有效时间；htime，HELLO消息的发射间隔；source\_addr，发送消息的原地址；packet_seq_number，数据包的序列号；hop\_count，消息已经经历的跳数；ttl，数据包生命周期；willingness，节点进行转发的意愿；neighbors，下一个传递的邻居节点。
 
-#### 2.2.3 TC分组
+### 2.2.3 TC分组
 
 该部分是将OLSR首部中“MessageType”设置为TC_Message。TTL设置为255(最大值)，以便将消息传播到网络中Vtime相应地设置为Top_hold_time的值。
 
@@ -508,59 +537,56 @@ ____
 
 ____
 
-77-86：tc_message是TC消息数据包格式。OLSR协议利用TC拓扑表记录接收到的TC消息内容。TC拓扑表的介绍见“节点存储的表项”的“TC拓扑表”。
+77-86：tc\_message是TC消息数据包格式。OLSR协议利用TC拓扑表记录接收到的TC消息内容。TC拓扑表的介绍见“节点存储的表项”的“TC拓扑表”。
 
-#### 2.2.4 节点存储表项
+### 2.2.4 节点存储表项
 
 1. 接口关联集
 
    网络中的每一个目的地节点存储了接口关联多元组。
 
-   | I_iface_addr | I_main_addr | I_time |
-   | ------------ | ----------- | ------ |
+   | I\_iface\_addr | I\_main\_addr | I\_time |
+   
 
-   **i_iface_addr**是节点的接口地址；
+**i\_iface\_addr**是节点的接口地址；
 
-   **i_main_addr**是该节点的主地址；
+**i\_main\_addr**是该节点的主地址；
 
-   **i_time**指定此元组过期的时间，以及必须删除的时间。
+**i\_time**指定此元组过期的时间，以及必须删除的时间。
 
 2. 本地链路信息表
 
-   | L_local_iface_addr | L_neighbor_iface_addr | L_SYM_time | L_ASYM_time | L_time |
-   | ------------------ | --------------------- | ---------- | ----------- | ------ |
+   |L\_local\_iface_addr | L_neighbor_iface_addr | L_SYM_time | L_ASYM_time | L_time 
 
-​	  **L_local_iface_addr**是本地节点(即链路的一个端点)的接口地址；
+​	  **L\_local\_iface\_addr**是本地节点(即链路的一个端点)的接口地址；
 
-​	  **L_neighbor_iface_addr**是相邻节点的接口地址；
+​	  **L\_neighbor\_iface\_addr**是相邻节点的接口地址；
 
-​	  **L_SYM_time**是链路被视为对称的时间；
+​	  **L\_SYM\_time**是链路被视为对称的时间；
 
-​	  **L_ASYM_time**是被认为听到邻居接口的时间；
+​	  **L\_ASYM\_time**是被认为听到邻居接口的时间；
 
- 	 **L_Time**指定了此记录过期的时间，并且必须被删除。当L_SYM_TIME和L_ASYM_TIME过期时，该链接被视为丢失。
+ 	 **L\_Time**指定了此记录过期的时间，并且必须被删除。当L\_SYM\_TIME和L\_ASYM\_TIME过期时，该链接被视为丢失。
 
 3.  一跳邻居表
 
    | N_neighbot_main | N_status | N_willingness |
-   | --------------- | -------- | ------------- |
 
- 	 **N_neighbor_main_addr**：邻居的主地址；
+ 	 **N\_neighbor\_main\_addr**：邻居的主地址；
 
-  	**N_status**：指定节点是NOT_SYM还是SYM；
+  	**N\_status**：指定节点是NOT\_SYM还是SYM；
 
-  	**N_willingness**：指定节点的携带意愿，取值为0到7之间的整数。
+  	**N\_willingness**：指定节点的携带意愿，取值为0到7之间的整数。
 
 4. 二跳邻居表
 
    | N_neighbor_main_addr | N_2hop_addr | N_time |
-   | -------------------- | ----------- | ------ |
 
-  	**N_neighbor_main_addr**是邻居的主地址；
+  	**N\_neighbor\_main\_addr**是邻居的主地址；
 
-  	**N_2hop_addr**是具有与N_neighbor_main_addr对称链接的2跳邻居的主地址，也就是说节点通过邻居节点N_neighbor_main_addr到达其二跳邻居节点N_2hop_addr；
+  	**N\_2hop\_addr**是具有与N\_neighbor\_main\_addr对称链接的2跳邻居的主地址，也就是说节点通过邻居节点N\_neighbor\_main\_addr到达其二跳邻居节点N\_2hop\_addr；
 
-  	**N_time**指定元组过期和必须删除的时间。
+  	**N\_time**指定元组过期和必须删除的时间。
 
 5. MPR表
 
@@ -569,45 +595,45 @@ ____
 6. MPR selector表
 
    | MS_main_addr | MS_time |
-   | ------------ | ------- |
+   
 
-   **MS_main_addr**是节点的主地址，该节点选择本节点为MPR；
+**MS\_main\_addr**是节点的主地址，该节点选择本节点为MPR；
 
-   **MS_time**指定元组过期的时间和必须删除的时间。
+**MS\_time**指定元组过期的时间和必须删除的时间。
 
 7. TC拓扑表
 
    网络中的每个节点维护有关网络的拓扑信息。此信息从TC消息中获取，并用于路由表计算。
 
    | T_dest_addr | T_last_addr | T_seq | T_time |
-   | ----------- | ----------- | ----- | ------ |
+   
 
-   **T_dest_addr**目的地节点的主地址，它可以从地址为T_last_addr的节点经过一跳到达；
+**T\_dest\_addr**目的地节点的主地址，它可以从地址为T\_last\_addr的节点经过一跳到达；
 
-   **T_last_addr**是T_dest_addr的MPR；
+**T\_last\_addr**是T\_dest\_addr的MPR；
 
-   **T_seq**是一个序列号；
+**T\_seq**是一个序列号；
 
-   **T_time**指定此元组过期的时间，以及必须删除的时间。
+**T\_time**指定此元组过期的时间，以及必须删除的时间。
 
 8. 路由表
 
    | R_dest_addr | R_next_addr | R_dist | R_iface_addr |
-   | ----------- | ----------- | ------ | ------------ |
+   
 
-   **R_dest_addr**目的地节点地址
+**R\_dest\_addr**目的地节点地址
 
-   **R_next_addr**下一跳节点地址
+**R\_next\_addr**下一跳节点地址
 
-   **R_dist**本节点到目的节点的距离
+**R\_dist**本节点到目的节点的距离
 
-   **R_iface_addr**该节点转发路由信息的接口
+**R\_iface\_addr**该节点转发路由信息的接口
 
-### 2.3 链路感知和邻居检测
+## 2.3 链路感知和邻居检测
 
 链路感知的机制是HELLO消息的周期性交换。节点必须在每个接口上执行链路感知，以便检测接口和邻居接口之间的链路。因此，对于给定的接口，HELLO消息将包含该接口上的链路列表，以及整个邻居的列表。
 
-#### 2.3.1 HELLO分组生成
+### 2.3.1 HELLO分组生成
 
 原则上，HELLO消息服务于三个独立的任务：链路感知，邻居检测和MPR选择。
 
@@ -632,7 +658,7 @@ ____
 
 ------
 
-66-79：generate_hello()函数用来产生hello消息包。调用olsr_build_hello_packet()函数为指定的接口生成要发送的HELLO数据包。如果创建成功，则通过net_output()将该HELLO数据包通过指定的接口发送出去。最后释放该HELLO消息。
+66-79：generate\_hello()函数用来产生hello消息包。调用olsr\_build\_hello\_packet()函数为指定的接口生成要发送的HELLO数据包。如果创建成功，则通过net\_output()将该HELLO数据包通过指定的接口发送出去。最后释放该HELLO消息。
 
 ____
 
@@ -839,7 +865,7 @@ ____
 
 106和113：设置willingness和ttl。HELLO消息只能在一跳范围内传播，所以ttl值设为1.
 
-120-180：遍历该接口的所有链路得到链路状态，用以计算邻居的状态。如果邻居的主地址位于该节点的MPR集合，则将邻居的状态更新为MPR_NEIGH；如果邻居的主地址位于该节点的邻居列表（即不为MPR），则判断之间的链路状态是否对称并更新邻居的状态域。
+120-180：遍历该接口的所有链路得到链路状态，用以计算邻居的状态。如果邻居的主地址位于该节点的MPR集合，则将邻居的状态更新为MPR\_NEIGH；如果邻居的主地址位于该节点的邻居列表（即不为MPR），则判断之间的链路状态是否对称并更新邻居的状态域。
 
 182-186：设置邻居节点的接口地址以及主地址。
 
@@ -887,9 +913,9 @@ ____
 
 ____
 
-58-62：local_iface_addr存储了节点接口的IP地址，neighbor_iface_addr存储邻居节点的接口IP地址。
+58-62：local\_iface\_addr存储了节点接口的IP地址，neighbor\_iface\_addr存储邻居节点的接口IP地址。
 
-63-68：各种时间的存储结构。link_timer定时器，link_sys_timer定时器。Vtime表示接受该消息之后多少时间之内视其为有效。Neighbor以链表的形式存储邻居节点信息，pre_status记录上一个节点的状态。
+63-68：各种时间的存储结构。link\_timer定时器，link\_sys\_timer定时器。Vtime表示接受该消息之后多少时间之内视其为有效。Neighbor以链表的形式存储邻居节点信息，pre\_status记录上一个节点的状态。
 
 ____
 
@@ -911,7 +937,7 @@ ____
 
 _____
 
-58-69：结构体neighbor_entry用来存储邻居节点的信息。分别存储了邻居的主地址、状态、转发意愿、覆盖两跳邻居的数量、节点连接的链路数量。其中还存储两个布尔类型的值用来判断该节点是否是MPR以及该MPR是否发生过改变。最后包含了指向两跳邻居列表的指针。
+58-69：结构体neighbor\_entry用来存储邻居节点的信息。分别存储了邻居的主地址、状态、转发意愿、覆盖两跳邻居的数量、节点连接的链路数量。其中还存储两个布尔类型的值用来判断该节点是否是MPR以及该MPR是否发生过改变。最后包含了指向两跳邻居列表的指针。
 
 ____
 
@@ -927,9 +953,9 @@ ____
 
 ____
 
-49-54：结构体neighbor_2_list_entry用来存储两跳节点列表中的信息。均采用指针的方式记录节点信息及结点的两跳邻居节点的信息以及列表的有效时间等。
+49-54：结构体neighbor\_2\_list\_entry用来存储两跳节点列表中的信息。均采用指针的方式记录节点信息及结点的两跳邻居节点的信息以及列表的有效时间等。
 
-#### 2.3.2 节点操作
+### 2.3.2 节点操作
 
 ____
 
@@ -960,7 +986,7 @@ ____
 
 ____
 
-160-168：该函数的功能是获取链路的状态，状态基于链路条目中的不同超时，根据不同的定时器值将返回不同的链路状态信息，如link_sys_timer对应链路状态为对称链路。
+160-168：该函数的功能是获取链路的状态，状态基于链路条目中的不同超时，根据不同的定时器值将返回不同的链路状态信息，如link\_sys\_timer对应链路状态为对称链路。
 
 ____
 
@@ -1002,25 +1028,25 @@ ____
 
 ____
 
-182-197：通过查找main_addr找到节点，然后通过look_link_status找到节点链路状态，并判断是否对称。
+182-197：通过查找main\_addr找到节点，然后通过lookup\_link\_status找到节点链路状态，并判断是否对称。
 
 200-206：查找主地址并找出节点其他端口的IP，判断该节点其他端口的链路状态。并判断该IP所在的链路状态是否对称，并返回对称链路的信息。
 
-#### 2.3.3 操作邻居表
+### 2.3.3 操作邻居表
 
 ____
 
 ```c
-void
-olsr_init_neighbor_table(void)
-{
-  int i;
-
-  for (i = 0; i < HASHSIZE; i++) {
-    neighbortable[i].next = &neighbortable[i];
-    neighbortable[i].prev = &neighbortable[i];
-  }
-}
+56	void
+57	olsr_init_neighbor_table(void)
+58    {
+59      int i;
+60
+61      for (i = 0; i < HASHSIZE; i++) {
+62        neighbortable[i].next = &neighbortable[i];
+63        neighbortable[i].prev = &neighbortable[i];
+64      }
+65    }
 ```
 
 ____
@@ -1115,9 +1141,9 @@ _____
 
 该函数的功能为更新邻居的状态。
 
-313-328：如果链路状态更新为SYM_LINK时，原来非对称的链路通知网络重新选举MPR和更新路由表并删除通过该邻居节点到达的两跳邻居节点。
+313-328：如果链路状态更新为SYM\_LINK时，原来非对称的链路通知网络重新选举MPR和更新路由表并删除通过该邻居节点到达的两跳邻居节点。
 
-329-339：如果链路状态原先为SYS_LINK，通知网络重新进行MPR的选取和路由表的更新。
+329-339：如果链路状态原先为SYS\_LINK，通知网络重新进行MPR的选取和路由表的更新。
 
 ____
 
@@ -1224,11 +1250,11 @@ ____
 
 165-211：该函数的功能是删除邻居表项，删除邻居表项的同时会删除掉该节点存储的两跳邻居列表。
 
-### 2.4 MPR
+## 2.4 MPR
 
 OLSR采用MPR机制对路由信息进行选择性的洪泛。MPR作为OLSR协议的核心部分，算法描述已经在前面描述过了，此处不再赘述。
 
-#### 2.4.1 MPR生成
+### 2.4.1 MPR生成
 
 ____
 
@@ -1299,7 +1325,7 @@ ____
 
 该函数的功能是清除被选为MPR的节点。
 
-246-249：如果节点目前是MPR节点，那就将is_mpr项设为false，was_mpr设为true，表明该节点过去是MPR节点，现在不是了。
+246-249：如果节点目前是MPR节点，那就将is\_mpr项设为false，was\_mpr设为true，表明该节点过去是MPR节点，现在不是了。
 
 252-255：当删除一个MPR节点时，该节点存储的两跳邻居列表也应该清除。所以将邻居节点覆盖的两跳邻居节点的数量置0。
 
@@ -1373,7 +1399,7 @@ ____
 
 173：该邻居节点被MPR覆盖，将两跳邻居节点被MPR覆盖的数量+1。
 
-181-188：如果两跳节点被MPR覆盖的数量大于全局变量mpr_coverage，将count递减。
+181-188：如果两跳节点被MPR覆盖的数量大于全局变量mpr\_coverage，将count递减。
 
 _____
 
@@ -1406,9 +1432,9 @@ ____
 
 该函数的作用是遍历所有的MPR节点判断其状态是否发生变化，若发生变化返回值为1，否则为0。
 
-282-292：对于结点如果其was_mpr值为true，表明它过去是MPR，is_mpr值为false，表示现在不是MPR，所以它的状态发生了变化，将retval置为1
+282-292：对于结点如果其was\_mpr值为true，表明它过去是MPR，is\_mpr值为false，表示现在不是MPR，所以它的状态发生了变化，将retval置为1
 
-#### 2.4.2 MPR选择
+### 2.4.2 MPR选择
 
 MPR的选择原则是MPR为对称邻居节点，通过MPR可以到达所有的两跳邻居节点，并且MPR的数量要尽可能少。接下来介绍有关两跳邻居节点的函数以及如何周到能够覆盖最多两跳节点的MPR。
 
@@ -1471,13 +1497,13 @@ ____
 
 该函数的作用是查找一条连接两跳邻居节点的链表。
 
-92-95：定义了两个两跳邻居节点链表（two_hop_temp，two_hop_list），前者是函数的返回值。
+92-95：定义了两个两跳邻居节点链表（two\_hop\_temp，two\_hop\_list），前者是函数的返回值。
 
-Dup_neighor记录邻居节点集合中已经存在的节点，two_hop_neighbor记录一个两跳邻居节点的局部变量。
+Dup\_neighor记录邻居节点集合中已经存在的节点，two\_hop\_neighbor记录一个两跳邻居节点的局部变量。
 
-97-112：遍历两跳邻居列表two_hop_neighbortable。
+97-112：遍历两跳邻居列表two\_hop\_neighbortable。
 
-114-117：寻找邻居表中已经存在的邻居地址neighbor_2_addr，忽略与本节点不对称的邻居节点。
+114-117：寻找邻居表中已经存在的邻居地址neighbor\_2\_addr，忽略与本节点不对称的邻居节点。
 
 122-126：如果该两跳邻居节点不在两跳邻居链表中，且只有一个邻居节点，则将该两跳邻居节点加入链表。
 
@@ -1516,11 +1542,11 @@ ____
 
 225-233：如果该一跳邻居节点不是MPR，而且该节点覆盖的两跳邻居节点的数量比maximum大，则更新maximum的值并将该一跳邻居节点作为候选MPR节点。
 
-### 2.5 拓扑发现
+## 2.5 拓扑发现
 
 网络中的MPR节点每隔一段时间会广播TC分组，用以维护网络的拓扑信息。在算法描述中已经说明，对于相同的TC分组,节点只有在第一次收到且其选择为MPR的情况下才转发，这样减少了网络中的广播包的数量，尽可能的避免了网络风暴。
 
-#### 2.5.1 TC分组生成
+### 2.5.1 TC分组生成
 
 ___
 
@@ -1543,9 +1569,9 @@ ___
 
 ____
 
-首先构建一个TC分组的结构体，然后使用olsr_build_tc_packet（）函数对该结构体进行一些初始化和赋值操作，然后queue_tc（）函数将该分组加入MID队列中，同时TIMED_OUT()检测接口的时间的时间戳是否已满，调用set_buffer_timer()设置定时器。最后由接口ifn释放该分组，然后调用olsr_free_tc_packet()函数释放内存。
+首先构建一个TC分组的结构体，然后使用olsr\_build\_tc\_packet（）函数对该结构体进行一些初始化和赋值操作，然后queue\_tc（）函数将该分组加入MID队列中，同时TIMED\_OUT()检测接口的时间的时间戳是否已满，调用set\_buffer\_timer()设置定时器。最后由接口ifn释放该分组，然后调用olsr\_free\_tc\_packet()函数释放内存。
 
-#### 2.5.2 拓扑信息集的初始化
+### 2.5.2 拓扑信息集的初始化
 
 ____
 
@@ -1578,13 +1604,13 @@ ____
 
 ____
 
-6:avl_init()初始化拓扑信息集为avl树。
+6:avl\_init()初始化拓扑信息集为avl树。
 
 11-18: 对拓扑表集合进行初始化，主要通过从cookie中获取的值为拓扑表集合的属性做初始化赋值。
 
-23:调用olsr_add_tc_entry（）配置一个entry,并将该entry加入avl树中。
+23:调用olsr\_add\_tc\_entry（）配置一个entry,并将该entry加入avl树中。
 
-#### 2.5.3 TC分组处理
+### 2.5.3 TC分组处理
 
 ____
 
@@ -1608,7 +1634,7 @@ ____
 
 ____
 
-当节点接受到一个TC分组后，只考虑其消息类型。如果类型不等于LQ_TC_MESSAGE或者TC_MESSAGE，则直接丢弃。
+当节点接受到一个TC分组后，只考虑其消息类型。如果类型不等于LQ\_TC\_MESSAGE或者TC\_MESSAGE，则直接丢弃。
 
 如果检测到该消息的发送者接口不是本节点的对称一跳邻居，则丢弃该分组。
 
@@ -1630,7 +1656,7 @@ ____
 
 ____
 
-如果分组中的msg_seq和外部变量msg_seq相等，且ignored小于32，说明该分组已经处理过，所以丢弃该分组，返回false。
+如果分组中的msg\_seq和外部变量msg\_seq相等，且ignored小于32，说明该分组已经处理过，所以丢弃该分组，返回false。
 
 ____
 
@@ -1684,9 +1710,9 @@ ____
 
 ____
 
-调用olsr_calculate_tc_border()计算borderset的值，并且重置相关的定时器。
+调用olsr\_calculate\_tc\_border()计算borderset的值，并且重置相关的定时器。
 
-#### 2.5.4 拓扑信息集的删除
+### 2.5.4 拓扑信息集的删除
 
 ____
 
@@ -1732,19 +1758,19 @@ ____
 
 ____
 
-该函数的功能是删除一个tc_entry.
+该函数的功能是删除一个tc\_entry.
 
-如果预定义了 LINUX_NETLINK_ROUTING(即在linux系统上运行)，则删除网关信息。删除时对网关的时间信息，网关协议等等先进行判断，判断这些信息是否为空后再进行删除。
+如果预定义了 LINUX\_NETLINK\_ROUTING(即在linux系统上运行)，则删除网关信息。删除时对网关的时间信息，网关协议等等先进行判断，判断这些信息是否为空后再进行删除。
 
-首先删除本地路由表中的rt_path；
+首先删除本地路由表中的rt\_path；
 
-清空所有的边，停止相应的计时器，将edge_gc_timer和validity_time属性都置为空。
+清空所有的边，停止相应的计时器，将edge\_gc\_timer和validity\_time属性都置为空。
 
 最后在avl树中删除相应节点。
 
-### 2.6 路由表计算
+## 2.6 路由表计算
 
-#### 2.6.1 相关结构体
+### 2.6.1 相关结构体
 
 ____
 
@@ -1764,9 +1790,9 @@ ____
 
 ____
 
-rt_metric:在路径选择时使用符合矩阵，矩阵中包括两个节点间的路径花销和跳数。
+rt\_metric:在路径选择时使用符合矩阵，矩阵中包括两个节点间的路径花销和跳数。
 
-rt_nexthop:该结构体表示吓一跳的网关和接口索引。
+rt\_nexthop:该结构体表示吓一跳的网关和接口索引。
 
 ____
 
@@ -1791,7 +1817,7 @@ ____
 
 ____
 
-每一个RIB需要一个路由接口，这个接口中包含最佳路径的下一跳网关信息，同时该接口时rt_path_tree的根节点。同样也包含了所有路由信息中最佳的一个路径。rt_dst包含该信息的路由地址和前缀长度。rt_path_tree是一个avl树，rt_tree_node表示最短路径的引用。
+每一个RIB需要一个路由接口，这个接口中包含最佳路径的下一跳网关信息，同时该接口时rt\_path\_tree的根节点。同样也包含了所有路由信息中最佳的一个路径。rt\_dst包含该信息的路由地址和前缀长度。rt\_path\_tree是一个avl树，rt\_tree\_node表示最短路径的引用。
 
 ____
 
@@ -1813,7 +1839,7 @@ ____
 
 ____
 
-这个结构体主要描述了rt_path的成员，每接收到一个rt_path就将其加入RIB。根据Dijkstra算法计算出的结果可以得到最优路径，同时可以得到一个最小的矩阵。rt_path首先被加入到tc_entry树中，如果根据Dijkstra计算可得当前tc_entry是可达到，则在全局RIB树中加入下一跳地址。
+这个结构体主要描述了rt_path的成员，每接收到一个rt\_path就将其加入RIB。根据Dijkstra算法计算出的结果可以得到最优路径，同时可以得到一个最小的矩阵。rt\_path首先被加入到tc\_entry树中，如果根据Dijkstra计算可得当前tc\_entry是可达到，则在全局RIB树中加入下一跳地址。
 
 ____
 
@@ -1853,7 +1879,7 @@ ____
 
 OLSR中有三种不同的路由类型，INT（internal route）有简单的TC分组接收生成，MID由MID分组生成并且HNA路由由HNA公告生成。
 
-#### 2.6.2 路由表计算
+### 2.6.2 路由表计算
 
 ____
 
@@ -1882,9 +1908,9 @@ ____
 
 该函数的主要功能是初始化路由表。
 
-首先调用avl_init()将路由表初始化为avl树，然后维护一个版本号routingtree_version用以检测每一个每一个rt_entry和rt_path，检查其是否过期，并将版本号初始化为0。
+首先调用avl\_init()将路由表初始化为avl树，然后维护一个版本号routingtree\_version用以检测每一个每一个rt\_entry和rt\_path，检查其是否过期，并将版本号初始化为0。
 
-然后是为rt_entry和rt_path分配内存，并创建相应的cookie。
+然后是为rt\_entry和rt\_path分配内存，并创建相应的cookie。
 
 _____
 
@@ -1984,11 +2010,11 @@ ____
 
 ____
 
-该函数功能是对于每个rt_path创建一个路由表项并将其加入全局的RIB树中。
+该函数功能是对于每个rt\_path创建一个路由表项并将其加入全局的RIB树中。
 
-首先检查传入的参数是否合法，如果传入的tc_entry的path_cost为ROUTE_COST_BROKEN，或者传入的rtp的目的地址长度大于所设置的最大地址长度，直接返回NULL。
+首先检查传入的参数是否合法，如果传入的tc\_entry的path\_cost为ROUTE\_COST\_BROKEN，或者传入的rtp的目的地址长度大于所设置的最大地址长度，直接返回NULL。
 
-然后调用avl_find()函数检查传入的rtp节点是否在路由表中，如果节点不在路由表中，将其加入avl树中。如果在，则将其从avl_node类型转为rt_entry类型。
+然后调用avl\_find()函数检查传入的rtp节点是否在路由表中，如果节点不在路由表中，将其加入avl树中。如果在，则将其从avl\_node类型转为rt\_entry类型。
 
 把新节点加入avl树，然后改变相应的参数，更新路由表。
 
@@ -2050,7 +2076,7 @@ ____
 
 首先将rtp所指的树节点从所在的树里面删除供将指向该树根节点的指针置空。
 
-然后将其从前缀树中删除，并解锁相应的tc_entry。
+然后将其从前缀树中删除，并解锁相应的tc\_entry。
 
 最后把rtp所指向的树节点从rtp树里面删除，释放cookie所占用的内存。
 
@@ -2134,7 +2160,7 @@ ____
 
 运行最优路径，首先得到第一个条表项后遍历所有表项，找到一条最有路径并修改当前网关路径到最优路径。
 
-首先调用avl_walk_first()函数从rt.rt_path_tree中的到第一个条目并坚持其是否为0，然后把节点转为rt_entry类型。
+首先调用avl\_walk\_first()函数从rt\_path\_tree中的到第一个条目并坚持其是否为0，然后把节点转为rt\_entry类型。
 
 然后遍历整棵avl树，并比较当前路径和当前最优路径，获取最优路径。
 
@@ -2199,4 +2225,4 @@ ____
 
 ____
 
-数功能是将一个前缀节点插入一颗前缀树。首先检查是否该rt_path是已知的，如果不是，则创建，如果根据Dijkstra算法得到节点不可达，最后计算最短路径是不考虑。
+数功能是将一个前缀节点插入一颗前缀树。首先检查是否该rt\_path是已知的，如果不是，则创建，如果根据Dijkstra算法得到节点不可达，最后计算最短路径是不考虑。
